@@ -1,0 +1,261 @@
+{
+  "milestone": "M1",
+  "requirements": [
+    {
+      "id": "M0-JAVA27",
+      "description": "Compile and read Java 27 bytecode",
+      "status": "automated",
+      "tests": [
+        "dev.arl.CompatibilityTest#springCanReadJava27Bytecode"
+      ]
+    },
+    {
+      "id": "M0-REACT",
+      "description": "Execute actual Alibaba ReactAgent",
+      "status": "automated",
+      "tests": [
+        "dev.arl.CompatibilityTest#invokesRealReactAgentWithOfflineModel"
+      ]
+    },
+    {
+      "id": "M0-TOOL",
+      "description": "Execute a tool and return its observed result",
+      "status": "automated",
+      "tests": [
+        "dev.arl.AgentToolTest#frameworkExecutesToolAndReturnsResult"
+      ]
+    },
+    {
+      "id": "M0-LIMIT",
+      "description": "Terminate repeated model/tool calls at the budget",
+      "status": "automated",
+      "tests": [
+        "dev.arl.AgentToolTest#repeatedToolSelectionIsBounded"
+      ]
+    },
+    {
+      "id": "M0-ISOLATION",
+      "description": "Concurrent requests do not share histories or call budgets",
+      "status": "automated",
+      "tests": [
+        "dev.arl.AgentToolTest#concurrentAgentsHaveIndependentHistoriesAndBudgets"
+      ]
+    },
+    {
+      "id": "M0-PROVIDERS",
+      "description": "Distinct clients and explicit default provider",
+      "status": "automated",
+      "tests": [
+        "dev.arl.llm.ProviderRegistryTest#configuredClientsRemainSeparateAndDefaultIsExplicit"
+      ]
+    },
+    {
+      "id": "M0-NO-FALLBACK",
+      "description": "Unknown/unconfigured providers fail without fallback",
+      "status": "automated",
+      "tests": [
+        "dev.arl.llm.ProviderRegistryTest#absentCredentialsDoNotConstructClientsOrFallback",
+        "dev.arl.llm.ProviderRegistryTest#defaultDoesNotFallbackToOnlyConfiguredProvider"
+      ]
+    },
+    {
+      "id": "M0-CONFIG",
+      "description": "Invalid configuration fails; blank keys stay unavailable",
+      "status": "automated",
+      "tests": [
+        "dev.arl.llm.ProviderRegistryTest#configurationValidationAndUnknownModelCapabilities",
+        "dev.arl.llm.ProviderRegistryTest#blankCredentialsAreUnavailableAndBlankConfigurationUsesDefaults",
+        "dev.arl.llm.ProviderRegistryTest#rejectsInvalidTimeout",
+        "dev.arl.llm.ProviderRegistryTest#rejectsInvalidTemperature"
+      ]
+    },
+    {
+      "id": "M0-WIRE",
+      "description": "Both adapters execute a tool round trip with correct provider-specific wire options",
+      "status": "automated",
+      "tests": [
+        "dev.arl.llm.ProviderTransportTest#adapterCompletesActualHttpToolRoundTrip"
+      ]
+    },
+    {
+      "id": "M0-TIMEOUT",
+      "description": "Both provider transports enforce read timeout without retry",
+      "status": "automated",
+      "tests": [
+        "dev.arl.llm.ProviderTransportTest#configuredReadTimeoutTerminatesRequestWithoutRetry"
+      ]
+    },
+    {
+      "id": "M0-NO-RETRY",
+      "description": "Both provider transports make one attempt for 503",
+      "status": "automated",
+      "tests": [
+        "dev.arl.llm.ProviderTransportTest#providerFailureDoesNotRetry"
+      ]
+    },
+    {
+      "id": "M0-BOOT",
+      "description": "Boot starts with optional credentials",
+      "status": "automated",
+      "tests": [
+        "dev.arl.server.StartupTest#bootStartsOnJava27"
+      ]
+    },
+    {
+      "id": "M0-LIVE-DEEPSEEK",
+      "description": "Live DeepSeek tool integration",
+      "status": "not_run",
+      "reason": "No credentialed live test evidence. Run opt-in smoke test separately; never infer success from stubs."
+    },
+    {
+      "id": "M0-LIVE-GROK",
+      "description": "Live Grok tool integration",
+      "status": "not_run",
+      "reason": "Optional credentials unavailable in initial M0 verification."
+    },
+    {
+      "id": "M0-STACK-REVIEW",
+      "description": "Accept experimental stack and adapter workarounds",
+      "status": "manual",
+      "reason": "Boot Java 27 support is locally verified only; AI/Alibaba milestones and DeepSeek thinking limitation remain documented."
+    },
+    {
+      "id": "M2-SAFETY",
+      "description": "Strict validation, authorization, confirmation, idempotency and bounded recovery",
+      "status": "deferred",
+      "reason": "No commerce writes until M2 transaction and safety acceptance tests pass."
+    },
+    {
+      "id": "M3-EVAL",
+      "description": "50-scenario offline/live evaluation and honest metrics",
+      "status": "deferred",
+      "reason": "M3 scope; no benchmark claims."
+    },
+    {
+      "id": "M4-DEMO",
+      "description": "React dashboard and portfolio demo",
+      "status": "deferred",
+      "reason": "M4 scope."
+    },
+    {
+      "id": "M1-READS",
+      "description": "Product, inventory and order facts come from actual observed tool results",
+      "status": "automated",
+      "tests": [
+        "dev.arl.agent.AgentExecutionServiceTest#realAgentReadsCatalogAndOnlyReturnsObservedFacts"
+      ]
+    },
+    {
+      "id": "M1-HTTP",
+      "description": "Read queries and traces through the running HTTP server",
+      "status": "automated",
+      "tests": [
+        "dev.arl.server.AgentApiTest#chatReadsProductInventoryAndOrderOverHttp"
+      ]
+    },
+    {
+      "id": "M1-INPUT",
+      "description": "Malformed HTTP requests return queryable sanitized errors",
+      "status": "automated",
+      "tests": [
+        "dev.arl.server.AgentApiTest#invalidApiRequestsAreRejectedWithQueryableErrorTraces"
+      ]
+    },
+    {
+      "id": "M1-ERRORS",
+      "description": "Provider, mode and tool errors have consistent HTTP statuses",
+      "status": "automated",
+      "tests": [
+        "dev.arl.server.AgentApiTest#providerModeAndToolErrorsUseConsistentStatuses"
+      ]
+    },
+    {
+      "id": "M1-ROUTING",
+      "description": "Health, providers and unsupported endpoints work without credentials",
+      "status": "automated",
+      "tests": [
+        "dev.arl.server.AgentApiTest#healthProviderStatusAndRoutingAreAvailableWithoutKeys"
+      ]
+    },
+    {
+      "id": "M1-NO-FABRICATION",
+      "description": "Unknown tools and unsupported requests cannot invent successful results",
+      "status": "automated",
+      "tests": [
+        "dev.arl.agent.AgentExecutionServiceTest#unsupportedAndUnknownToolsCannotInventResults"
+      ]
+    },
+    {
+      "id": "M1-TOOL-ERRORS",
+      "description": "Model claims cannot override tool errors",
+      "status": "automated",
+      "tests": [
+        "dev.arl.agent.AgentExecutionServiceTest#toolErrorsRemainErrorsEvenWhenModelClaimsSuccess"
+      ]
+    },
+    {
+      "id": "M1-FAILURES",
+      "description": "Provider errors, invalid responses and execution limits remain explicit",
+      "status": "automated",
+      "tests": [
+        "dev.arl.agent.AgentExecutionServiceTest#providerFailuresAndLimitsAreExplicitAndSanitized"
+      ]
+    },
+    {
+      "id": "M1-ISOLATION",
+      "description": "Concurrent chats have independent results and traces",
+      "status": "automated",
+      "tests": [
+        "dev.arl.agent.AgentExecutionServiceTest#concurrentRequestsKeepTheirResultsAndTracesSeparate"
+      ]
+    },
+    {
+      "id": "M1-NO-WRITES",
+      "description": "Reservation proposals never modify stock or grant authorization",
+      "status": "automated",
+      "tests": [
+        "dev.arl.tools.CommerceToolRegistryTest#proposalsNeverChangeInventoryOrPretendToAuthorize"
+      ]
+    },
+    {
+      "id": "M1-CONTRACTS",
+      "description": "Central tool contracts and structured callback results",
+      "status": "automated",
+      "tests": [
+        "dev.arl.tools.CommerceToolRegistryTest#contractsAndCallbacksExposeStructuredResults"
+      ]
+    },
+    {
+      "id": "M1-ARGUMENTS",
+      "description": "Strict arguments reject malformed JSON and unexpected fields",
+      "status": "automated",
+      "tests": [
+        "dev.arl.tools.CommerceToolRegistryTest#invalidArgumentsNeverReachARead"
+      ]
+    },
+    {
+      "id": "M1-TRACES",
+      "description": "Completed trace snapshots are immutable and bounded",
+      "status": "automated",
+      "tests": [
+        "dev.arl.observability.TraceStoreTest#completedSnapshotsAreBoundedAndImmutable"
+      ]
+    },
+    {
+      "id": "M1-LIVE",
+      "description": "Credentialed commerce tool calling for both providers",
+      "status": "not_run",
+      "reason": "Opt-in tests supplied; no live provider credentials available. Scripted model tests do not establish live model accuracy."
+    }
+  ],
+  "minimumInvocations": {
+    "dev.arl.llm.ProviderTransportTest#adapterCompletesActualHttpToolRoundTrip": 2,
+    "dev.arl.llm.ProviderTransportTest#configuredReadTimeoutTerminatesRequestWithoutRetry": 2,
+    "dev.arl.llm.ProviderTransportTest#providerFailureDoesNotRetry": 2,
+    "dev.arl.llm.ProviderRegistryTest#rejectsInvalidTimeout": 3,
+    "dev.arl.llm.ProviderRegistryTest#rejectsInvalidTemperature": 4,
+    "dev.arl.agent.AgentExecutionServiceTest#realAgentReadsCatalogAndOnlyReturnsObservedFacts": 3,
+    "dev.arl.agent.AgentExecutionServiceTest#toolErrorsRemainErrorsEvenWhenModelClaimsSuccess": 3,
+    "dev.arl.tools.CommerceToolRegistryTest#invalidArgumentsNeverReachARead": 13
+  }
+}

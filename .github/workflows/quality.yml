@@ -1,0 +1,37 @@
+name: Quality
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '27'
+          cache: maven
+      - name: Offline quality and requirement gate
+        run: make verify
+      - name: Keep test, coverage and requirement evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quality-evidence
+          retention-days: 14
+          path: |
+            **/target/surefire-reports/
+            **/target/site/jacoco/
+            **/target/checkstyle-result.xml
+            target/quality/

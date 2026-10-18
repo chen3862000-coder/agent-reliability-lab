@@ -1,0 +1,74 @@
+{
+  "verifiedAt": "2026-10-18T16:50:14+08:00",
+  "milestone": "M0",
+  "build": "SUCCESS",
+  "java": "27+35-2325",
+  "command": "MAVEN_USER_HOME=/tmp/arl-wrapper ./mvnw -B -ntp -o -Dmaven.repo.local=/tmp/arl-m2 clean verify",
+  "totals": {
+    "tests": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 2
+  },
+  "passed": 12,
+  "suites": [
+    {
+      "suite": "dev.arl.AgentToolTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.arl.CompatibilityTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.arl.LiveProviderTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "suite": "dev.arl.llm.ProviderRegistryTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.arl.llm.ProviderTransportTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.arl.server.StartupTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "live": {
+    "deepseek": {
+      "status": "NOT_RUN",
+      "reason": "DEEPSEEK_API_KEY absent; live tests not enabled"
+    },
+    "grok": {
+      "status": "NOT_RUN",
+      "reason": "XAI_API_KEY absent; live tests not enabled"
+    }
+  },
+  "limitations": [
+    "Boot upstream support range stops at Java 26; Java 27 verified only locally",
+    "Spring AI and Alibaba versions are milestone releases",
+    "DeepSeek thinking disabled; request-field interceptor required",
+    "No benchmark, commerce tools, REST API or reliability harness implemented in M0"
+  ]
+}
