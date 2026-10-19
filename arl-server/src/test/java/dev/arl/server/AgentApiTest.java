@@ -22,7 +22,7 @@ import org.springframework.test.annotation.DirtiesContext;
 @SpringBootTest(
     classes = {ArlApplication.class, AgentApiTest.OfflineProviders.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DirtiesContext
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class AgentApiTest {
   @Value("${local.server.port}")
   int port;
@@ -31,8 +31,12 @@ class AgentApiTest {
   private final HttpClient client = HttpClient.newHttpClient();
 
   private HttpResponse<String> post(String body) throws Exception {
+    return post("/agent/chat", body);
+  }
+
+  private HttpResponse<String> post(String path, String body) throws Exception {
     return client.send(
-        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/agent/chat"))
+        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body))
             .build(),
@@ -89,14 +93,34 @@ class AgentApiTest {
         post("{\"message\":\"inventory\",\"provider\":\"other\"}"), 400, "UNKNOWN_PROVIDER");
     assertError(
         post("{\"message\":\"inventory\",\"provider\":\"grok\"}"), 503, "PROVIDER_NOT_CONFIGURED");
-    assertError(
-        post("{\"message\":\"inventory\",\"mode\":\"PROTECTED\"}"), 400, "MODE_NOT_AVAILABLE");
+    assertError(post("{\"message\":\"inventory\",\"mode\":\"OTHER\"}"), 400, "MODE_NOT_AVAILABLE");
     assertError(post("{\"message\":\"fail\"}"), 502, "PROVIDER_UNAVAILABLE");
     assertError(post("{\"message\":\"missing\"}"), 422, "NOT_FOUND");
     assertError(post("{\"message\":\"invalid\"}"), 422, "INVALID_TOOL_ARGUMENTS");
     assertError(post("{\"message\":\"unsupported\"}"), 422, "UNSUPPORTED_REQUEST");
     assertError(post("{\"message\":\"reserve\"}"), 422, "RESERVATION_NOT_ENABLED");
     assertTrue(post("{\"message\":\"inventory\"}").body().contains("20 units"));
+  }
+
+  @Test
+  void protectedReservationRequiresConfirmationAndIsIdempotent() throws Exception {
+    var proposal = post("{\"message\":\"reserve\",\"mode\":\"PROTECTED\"}");
+    assertEquals(200, proposal.statusCode(), proposal.body());
+    var proposalJson = JSON.readTree(proposal.body());
+    var confirmationId =
+        proposalJson.path("results").get(0).path("data").path("confirmationId").asText();
+    assertTrue(post("{\"message\":\"inventory\"}").body().contains("20 units"));
+
+    var confirmBody =
+        "{\"confirmationId\":\"" + confirmationId + "\",\"idempotencyKey\":\"idem-http-1\"}";
+    var committed = post("/agent/confirm", confirmBody);
+    assertEquals(200, committed.statusCode(), committed.body());
+    assertEquals(17, JSON.readTree(committed.body()).path("remaining").asInt());
+    assertTrue(post("{\"message\":\"inventory\"}").body().contains("17 units"));
+
+    var replay = post("/agent/confirm", confirmBody);
+    assertEquals(200, replay.statusCode(), replay.body());
+    assertEquals(17, JSON.readTree(replay.body()).path("remaining").asInt());
   }
 
   private static void assertError(HttpResponse<String> response, int status, String code)
@@ -111,7 +135,7 @@ class AgentApiTest {
     assertEquals("UP", JSON.readTree(get("/health").body()).path("status").asText());
     assertEquals(2, JSON.readTree(get("/providers").body()).size());
     assertError(get("/traces/not-present"), 404, "TRACE_NOT_FOUND");
-    assertError(get("/agent/confirm"), 404, "ENDPOINT_NOT_FOUND");
+    assertError(get("/agent/confirm"), 405, "METHOD_NOT_ALLOWED");
     assertError(get("/agent/chat"), 405, "METHOD_NOT_ALLOWED");
     var media =
         client.send(
@@ -138,51 +162,69 @@ class AgentApiTest {
             throw new ProviderException(ProviderException.Code.PROVIDER_NOT_CONFIGURED);
           if (!id.equals("deepseek"))
             throw new ProviderException(ProviderException.Code.UNKNOWN_PROVIDER);
-          return prompt -> {
-            String question =
-                prompt.getInstructions().stream()
-                    .filter(m -> m instanceof UserMessage)
-                    .findFirst()
-                    .orElseThrow()
-                    .getText();
-            if (question.equals("fail")) throw new IllegalStateException("secret-provider-detail");
-            if (question.equals("unsupported")
-                || prompt.getInstructions().stream()
-                    .anyMatch(m -> m instanceof ToolResponseMessage))
-              return new ChatResponse(
-                  List.of(new Generation(new AssistantMessage("fabricated answer ignored"))));
-            String tool =
-                switch (question) {
-                  case "product" -> "get_product";
-                  case "order" -> "get_order";
-                  case "reserve" -> "reserve_inventory";
-                  default -> "get_inventory";
-                };
-            String args =
-                switch (question) {
-                  case "order" -> "{\"orderId\":\"123\"}";
-                  case "reserve" -> "{\"sku\":\"SKU-1001\",\"quantity\":3}";
-                  case "missing" -> "{\"sku\":\"MISSING\"}";
-                  case "invalid" -> "{}";
-                  default -> "{\"sku\":\"SKU-1001\"}";
-                };
-            return new ChatResponse(
-                List.of(
-                    new Generation(
-                        AssistantMessage.builder()
-                            .content("")
-                            .toolCalls(
-                                List.of(
-                                    new AssistantMessage.ToolCall(
-                                        "api-tool", "function", tool, args)))
-                            .build())));
-          };
+          return OfflineProviders::scriptedResponse;
         }
 
         public List<LlmProviderInfo> availableProviders() {
           return new ProviderRegistry(Map.of()).availableProviders();
         }
       };
+    }
+
+    private static ChatResponse scriptedResponse(org.springframework.ai.chat.prompt.Prompt prompt) {
+      String question = question(prompt);
+      if (question.equals("fail")) throw new IllegalStateException("secret-provider-detail");
+      if (question.equals("unsupported") || hasToolResponse(prompt)) return fabricated();
+      return toolCall(tool(question), arguments(question));
+    }
+
+    private static String question(org.springframework.ai.chat.prompt.Prompt prompt) {
+      return prompt.getInstructions().stream()
+          .filter(m -> m instanceof UserMessage)
+          .findFirst()
+          .orElseThrow()
+          .getText();
+    }
+
+    private static boolean hasToolResponse(org.springframework.ai.chat.prompt.Prompt prompt) {
+      return prompt.getInstructions().stream().anyMatch(m -> m instanceof ToolResponseMessage);
+    }
+
+    private static ChatResponse fabricated() {
+      return new ChatResponse(
+          List.of(new Generation(new AssistantMessage("fabricated answer ignored"))));
+    }
+
+    private static String tool(String question) {
+      return switch (question) {
+        case "product" -> "get_product";
+        case "order" -> "get_order";
+        case "reserve" -> "reserve_inventory";
+        default -> "get_inventory";
+      };
+    }
+
+    private static String arguments(String question) {
+      return switch (question) {
+        case "order" -> "{\"orderId\":\"123\"}";
+        case "reserve" -> "{\"sku\":\"SKU-1001\",\"quantity\":3}";
+        case "missing" -> "{\"sku\":\"MISSING\"}";
+        case "invalid" -> "{}";
+        default -> "{\"sku\":\"SKU-1001\"}";
+      };
+    }
+
+    private static ChatResponse toolCall(String tool, String arguments) {
+      return new ChatResponse(
+          List.of(
+              new Generation(
+                  AssistantMessage.builder()
+                      .content("")
+                      .toolCalls(
+                          List.of(
+                              new AssistantMessage.ToolCall(
+                                  "api-tool", "function", tool, arguments)))
+                      .build())));
     }
   }
 }

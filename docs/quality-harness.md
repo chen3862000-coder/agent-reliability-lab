@@ -26,7 +26,8 @@ provider credentials from the Maven environment and explicitly disables live tes
 |---|---|
 | Toolchain | Maven Enforcer: JDK 27, Maven 3.9.11–3.x |
 | Formatting | Spotless 3.10.4 / google-java-format 1.36.1, production and test Java |
-| Static source checks | Checkstyle 14.3.0 via plugin 3.6.0: unused imports, empty catches, equals/hashCode pairing, switch fall-through, broad catch/throws and modifier order |
+| Static source checks | Checkstyle 14.3.0 via plugin 3.6.0: unused imports, empty catches, equals/hashCode pairing, switch fall-through, broad catch/throws, modifier order, file/method size, cyclomatic complexity, coupling, fan-out, parameter count, nesting depth and return count |
+| Duplication | PMD CPD 3.28.0 fails duplicated Java blocks at 55+ tokens across production and test sources |
 | Regression | JUnit: real ReactAgent graph, HTTP stubs, limits, isolation, provider configuration, no fallback, timeout and failure behavior |
 | Coverage | JaCoCo 0.8.15: each Java module must reach 71% classes, 71% methods, 85% lines and 75% branches; HTML/XML reports |
 | Architecture | Core cannot directly depend on another ARL module or production Boot composition; source imports checked |
@@ -41,7 +42,9 @@ least one executed instruction. These metrics do not imply every path is tested;
 and branch gates remain in place. Interfaces without executable code are not counted.
 
 Coverage is a regression floor, not proof of correctness. Do not lower thresholds or
-exclude hard-to-test logic to pass a build. Static checks do not replace a bug review.
+exclude hard-to-test logic to pass a build. Maintainability checks intentionally flag
+large methods/classes, high branching, heavy coupling and copy/paste blocks; refactor
+the code rather than suppressing or weakening these rules. Static checks do not replace a bug review.
 Checkstyle currently parses language syntax through Java 25; the project uses ordinary
 syntax compiled to Java 27. New Java 26/27 syntax requires a parser compatibility check.
 JaCoCo 0.8.15 supports Java 27. google-java-format 1.37.0 failed through this Spotless
@@ -53,6 +56,7 @@ combination; 1.36.1 is pinned based on executable verification. No toolchain dow
 - `arl-*/target/surefire-reports/`: individual Java results, including explicit live skips.
 - `arl-*/target/site/jacoco/index.html` and `jacoco.xml`: module coverage.
 - `arl-*/target/checkstyle-result.xml`: source-check results.
+- `arl-*/target/cpd.xml`: duplicate-code report when CPD runs.
 
 These outputs are ignored by Git and uploaded as CI artifacts. The original
 `docs/m0-verification.json` is historical evidence only; it does not certify new code.

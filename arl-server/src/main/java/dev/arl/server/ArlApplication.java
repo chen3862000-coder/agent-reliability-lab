@@ -35,8 +35,11 @@ public class ArlApplication {
   }
 
   @Bean
-  dev.arl.domain.CommerceCatalog catalog() {
-    return new dev.arl.domain.CommerceCatalog();
+  dev.arl.domain.CommerceCatalog catalog(Environment environment) {
+    String path = environment.getProperty("arl.db.path", "");
+    return path.isBlank()
+        ? new dev.arl.domain.CommerceCatalog()
+        : dev.arl.domain.CommerceCatalog.fileBacked(path);
   }
 
   @Bean

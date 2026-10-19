@@ -2,10 +2,12 @@ package dev.arl.server;
 
 import dev.arl.agent.AgentExecutionService;
 import dev.arl.agent.AgentResponse;
+import dev.arl.domain.CommerceCatalog;
 import dev.arl.llm.LlmProviderRegistry;
 import dev.arl.observability.TraceStore;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
@@ -18,20 +20,36 @@ public final class AgentController {
       @Size(max = 32) String provider,
       @Size(max = 32) String mode) {}
 
+  public record ConfirmRequest(
+      @NotBlank @Pattern(regexp = "[A-Za-z0-9-]{1,128}") String confirmationId,
+      @NotBlank @Pattern(regexp = "[A-Za-z0-9-]{8,128}") String idempotencyKey) {}
+
   private final AgentExecutionService agent;
   private final LlmProviderRegistry providers;
+  private final CommerceCatalog catalog;
   private final TraceStore traces;
 
   public AgentController(
-      AgentExecutionService agent, LlmProviderRegistry providers, TraceStore traces) {
+      AgentExecutionService agent,
+      LlmProviderRegistry providers,
+      CommerceCatalog catalog,
+      TraceStore traces) {
     this.agent = agent;
     this.providers = providers;
+    this.catalog = catalog;
     this.traces = traces;
   }
 
   @PostMapping("/agent/chat")
   public ResponseEntity<AgentResponse> chat(@Valid @RequestBody ChatRequest request) {
     AgentResponse result = agent.chat(request.message(), request.provider(), request.mode());
+    return ResponseEntity.status(status(result.errorCode())).body(result);
+  }
+
+  @PostMapping("/agent/confirm")
+  public ResponseEntity<CommerceCatalog.ReservationCommit> confirm(
+      @Valid @RequestBody ConfirmRequest request) {
+    var result = catalog.confirmReservation(request.confirmationId(), request.idempotencyKey());
     return ResponseEntity.status(status(result.errorCode())).body(result);
   }
 
@@ -47,7 +65,7 @@ public final class AgentController {
 
   @GetMapping("/health")
   public Map<String, String> health() {
-    return Map.of("status", "UP", "milestone", "M1");
+    return Map.of("status", "UP", "milestone", "M2");
   }
 
   @GetMapping("/providers")

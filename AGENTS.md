@@ -1,8 +1,8 @@
 # Agent Instructions
 
 ## Current Scope
-- M1 is approved and implemented: read-only commerce tools, REST chat and bounded traces.
-- Reservation is proposal-only. Do not add executable writes, protected mode, SQLite controls, evaluations, Docker, or frontend without approval for later milestones.
+- M3 is approved and implemented: M2 protected reservation plus deterministic offline evaluation in `arl-evaluation`.
+- Do not add Docker, frontend, live evaluation claims, or broader commerce writes without approval for later milestones.
 - See `docs/m1-implementation.md` for current behavior and limitations.
 
 ## Toolchain
@@ -13,6 +13,7 @@
 
 ## Commands
 - Canonical verification: `make verify` (also `make test`): Maven checks plus requirement evidence.
+- Offline evaluation report: `make evaluate`; writes `target/evaluation/report.json` and does not call paid providers.
 - Java-only verification: `./mvnw clean verify`; formatting: `make format`.
 - Run the M1 app: `make start` or `./scripts/start-arl-server.sh`; it builds and starts the HTTP server on loopback port 8080. `make run` is an alias.
 - Focus one module: `./mvnw -pl arl-core test` or `./mvnw -pl arl-server test`.
@@ -27,6 +28,7 @@
 
 ## Provider Gotchas
 - The app does not auto-load `.env`; environment variables must already be exported.
+- `ARL_DB_PATH` controls SQLite persistence; blank means in-memory stock/idempotency reset on restart.
 - Only `deepseek` and `grok` are valid provider IDs; there is no automatic provider fallback.
 - Missing credentials must keep providers unconfigured rather than constructing clients.
 - Each invocation should get a fresh `ReactAgent`/hook; do not share checkpoint or thread IDs.
@@ -48,6 +50,7 @@
 - Update `config/requirements.json` mappings when adding/renaming acceptance tests.
 - Run `make verify` on the final source state. Use its generated evidence, not the historical M0 JSON.
 - Do not lower coverage floors, suppress checks, or reclassify automated requirements merely to pass.
+- Do not weaken Checkstyle or PMD CPD smell checks to pass; refactor large, complex or duplicated code instead.
 - Keep manual review, live provider verification and deferred milestones separate from automated passes.
 - The engineering harness is not the M2 runtime reliability harness; do not imply M2 is implemented.
 

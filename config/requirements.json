@@ -1,5 +1,5 @@
 {
-  "milestone": "M1",
+  "milestone": "M3",
   "requirements": [
     {
       "id": "M0-JAVA27",
@@ -122,14 +122,24 @@
     {
       "id": "M2-SAFETY",
       "description": "Strict validation, authorization, confirmation, idempotency and bounded recovery",
-      "status": "deferred",
-      "reason": "No commerce writes until M2 transaction and safety acceptance tests pass."
+      "status": "automated",
+      "tests": [
+        "dev.arl.tools.CommerceToolRegistryTest#protectedReservationRequiresConfirmationBeforeMutatingStock",
+        "dev.arl.tools.CommerceToolRegistryTest#confirmationIsIdempotentAndRejectsKeyReuseForChangedOperation",
+        "dev.arl.tools.CommerceToolRegistryTest#fileBackedCatalogPreservesStockAndIdempotencyAcrossRestart",
+        "dev.arl.tools.CommerceToolRegistryTest#concurrentConfirmationsApplyOnlyOneStockMutation",
+        "dev.arl.server.PersistentCatalogTest#configuredSqlitePathSurvivesApplicationRestart",
+        "dev.arl.server.AgentApiTest#protectedReservationRequiresConfirmationAndIsIdempotent"
+      ]
     },
     {
       "id": "M3-EVAL",
-      "description": "50-scenario offline/live evaluation and honest metrics",
-      "status": "deferred",
-      "reason": "M3 scope; no benchmark claims."
+      "description": "Deterministic offline evaluation with honest metrics and JSON report",
+      "status": "automated",
+      "tests": [
+        "dev.arl.evaluation.EvaluationRunnerTest#offlineEvaluationProducesHonestMetricsAndReport",
+        "dev.arl.evaluation.EvaluationMainTest#commandLineEntryPointWritesReport"
+      ]
     },
     {
       "id": "M4-DEMO",
@@ -211,7 +221,7 @@
     },
     {
       "id": "M1-NO-WRITES",
-      "description": "Reservation proposals never modify stock or grant authorization",
+      "description": "Baseline reservation proposals never modify stock or grant authorization",
       "status": "automated",
       "tests": [
         "dev.arl.tools.CommerceToolRegistryTest#proposalsNeverChangeInventoryOrPretendToAuthorize"

@@ -166,7 +166,7 @@ class AgentExecutionServiceTest {
             });
     for (String message : new String[] {null, " ", "x".repeat(4001)})
       assertEquals("INVALID_REQUEST", service.chat(message, null, null).errorCode());
-    assertEquals("MODE_NOT_AVAILABLE", service.chat("query", null, "PROTECTED").errorCode());
+    assertEquals("MODE_NOT_AVAILABLE", service.chat("query", null, "OTHER").errorCode());
     assertEquals("UNKNOWN_PROVIDER", service.chat("query", "other", null).errorCode());
     assertEquals(0, count.get());
     var missing =
@@ -196,5 +196,36 @@ class AgentExecutionServiceTest {
         assertEquals(response.provider(), traces.find(response.traceId()).orElseThrow().provider());
       }
     }
+  }
+
+  @Test
+  void protectedModeReturnsConfirmationProposalWithoutMutatingStock() {
+    var catalog = new CommerceCatalog();
+    var service =
+        service(oneTool("reserve_inventory", "{\"sku\":\"SKU-1001\",\"quantity\":3}"), catalog);
+
+    var response = service.chat("reserve", null, "PROTECTED");
+
+    assertEquals("SUCCESS", response.status());
+    assertEquals(20, catalog.inventory("SKU-1001").available());
+    assertTrue(response.message().contains("requires confirmation"));
+    assertTrue(response.results().getFirst().data().toString().contains("confirmationId"));
+  }
+
+  private AgentExecutionService service(ChatModel model, CommerceCatalog catalog) {
+    LlmProviderRegistry registry =
+        new LlmProviderRegistry() {
+          public ChatModel resolve(String id) {
+            if (!List.of("deepseek", "grok").contains(id))
+              throw new ProviderException(ProviderException.Code.UNKNOWN_PROVIDER);
+            return model;
+          }
+
+          public List<LlmProviderInfo> availableProviders() {
+            return new ProviderRegistry(Map.of()).availableProviders();
+          }
+        };
+    return new AgentExecutionService(
+        registry, "deepseek", new CommerceToolRegistry(catalog), traces);
   }
 }
