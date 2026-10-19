@@ -119,6 +119,15 @@ export function newIdempotencyKey(confirmationId: string): string {
   return `frontend-${confirmationId.slice(0, 8)}-${suffix}`;
 }
 
+export function confirmationCommitted(commit: ReservationCommit | null): boolean {
+  return commit?.errorCode === null;
+}
+
+export function shortId(value: string | null | undefined): string {
+  if (!value) return 'n/a';
+  return value.length <= 16 ? value : `${value.slice(0, 8)}...${value.slice(-6)}`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

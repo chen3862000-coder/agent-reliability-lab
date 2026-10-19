@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AgentResponse, confirmationFrom, newIdempotencyKey } from './api';
+import {
+  AgentResponse,
+  confirmationCommitted,
+  confirmationFrom,
+  newIdempotencyKey,
+  shortId
+} from './api';
 
 describe('confirmationFrom', () => {
   it('extracts reservation confirmation data from structured tool results', () => {
@@ -62,5 +68,42 @@ describe('newIdempotencyKey', () => {
     const key = newIdempotencyKey('abcdef12-3456');
     expect(key.startsWith('frontend-abcdef12-')).toBe(true);
     expect(key.length).toBeGreaterThan(20);
+  });
+});
+
+describe('confirmationCommitted', () => {
+  it('only treats null errorCode commits as applied writes', () => {
+    expect(
+      confirmationCommitted({
+        status: 'SUCCESS',
+        message: 'Reserved 3 units of SKU-1001.',
+        errorCode: null,
+        confirmationId: 'confirm-123',
+        idempotencyKey: 'idem-12345',
+        sku: 'SKU-1001',
+        quantity: 3,
+        remaining: 17
+      })
+    ).toBe(true);
+    expect(
+      confirmationCommitted({
+        status: 'ERROR',
+        message: 'IDEMPOTENCY KEY REUSED',
+        errorCode: 'IDEMPOTENCY_KEY_REUSED',
+        confirmationId: 'confirm-123',
+        idempotencyKey: 'idem-12345',
+        sku: null,
+        quantity: 0,
+        remaining: null
+      })
+    ).toBe(false);
+  });
+});
+
+describe('shortId', () => {
+  it('shortens long IDs for display', () => {
+    expect(shortId('1234567890abcdefxyz')).toBe('12345678...defxyz');
+    expect(shortId('short')).toBe('short');
+    expect(shortId(null)).toBe('n/a');
   });
 });

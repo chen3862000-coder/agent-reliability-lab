@@ -29,6 +29,18 @@ button:disabled {
   opacity: 0.55;
 }
 
+.link-button, .sample-button {
+  border: 1px solid rgba(31, 58, 95, 0.18);
+  color: #1f3a5f;
+  background: #f8fafc;
+}
+
+.link-button {
+  margin-left: 8px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+}
+
 .shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
@@ -109,6 +121,7 @@ button:disabled {
 .ok { color: #047857; }
 .muted { color: #71717a; }
 .error { color: #b91c1c; }
+.notice { color: #047857; }
 
 label {
   display: grid;
@@ -129,6 +142,17 @@ textarea, select, input {
 textarea {
   min-height: 180px;
   resize: vertical;
+}
+
+.samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sample-button {
+  padding: 0.55rem 0.8rem;
 }
 
 dl {
@@ -172,6 +196,12 @@ pre {
   padding: 18px;
   border-radius: 20px;
   background: #fff7ed;
+}
+
+.stock {
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  background: #ecfdf5;
 }
 
 .trace {
