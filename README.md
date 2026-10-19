@@ -129,6 +129,37 @@ make frontend-dev
 
 The Vite dev server proxies API calls to `http://127.0.0.1:8080`.
 
+## Demo Walkthrough
+
+1. Export a provider key and start the backend:
+
+```sh
+export ARL_DEFAULT_PROVIDER=deepseek
+export DEEPSEEK_API_KEY='your-deepseek-key'
+make start
+```
+
+2. In another terminal, start the frontend:
+
+```sh
+make frontend-install
+make frontend-dev
+```
+
+3. Open `http://127.0.0.1:5173` and verify the provider panel shows `deepseek` as `CONFIGURED`.
+4. Click the inventory sample prompt or enter `Check inventory for SKU-1001`, then send in `BASELINE` mode.
+5. Switch to `PROTECTED`, click the reservation sample prompt, and send `Reserve 3 units of SKU-1001`.
+6. Confirm the reservation card. The backend consumes the confirmation token with the displayed idempotency key and returns remaining stock.
+7. Click `Load trace` to inspect the ordered trace events for the request.
+
+Common demo outcomes:
+
+- Missing API key: `/providers` shows `NOT_CONFIGURED`; chat returns `PROVIDER_NOT_CONFIGURED`.
+- Insufficient inventory: reserving `SKU-1002` returns `INSUFFICIENT_INVENTORY`; no confirmation card appears.
+- Idempotency replay: confirming the same token/key again returns the same result without another stock change.
+- Idempotency key reuse: reusing a key for a different confirmation returns `IDEMPOTENCY_KEY_REUSED`.
+- Restart behavior: leave `ARL_DB_PATH` blank to reset stock on restart; set it to a file path to preserve stock and idempotency records.
+
 ## Documentation
 
 - [Project status](docs/project-status.md)

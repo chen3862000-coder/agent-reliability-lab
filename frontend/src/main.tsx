@@ -7,13 +7,23 @@ import {
   ReservationCommit,
   Trace,
   chat,
+  confirmationCommitted,
   confirmationFrom,
   confirmReservation,
   getProviders,
   getTrace,
-  newIdempotencyKey
+  newIdempotencyKey,
+  shortId
 } from './api';
 import './styles.css';
+
+const SAMPLE_PROMPTS = [
+  { label: 'Inventory', mode: 'BASELINE', text: 'Check inventory for SKU-1001' },
+  { label: 'Product', mode: 'BASELINE', text: 'Show product details for SKU-1001' },
+  { label: 'Order', mode: 'BASELINE', text: 'Check order 123' },
+  { label: 'Protected reserve', mode: 'PROTECTED', text: 'Reserve 3 units of SKU-1001' },
+  { label: 'Insufficient stock', mode: 'PROTECTED', text: 'Reserve 1 unit of SKU-1002' }
+] as const;
 
 function App() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
@@ -26,6 +36,7 @@ function App() {
   const [commit, setCommit] = useState<ReservationCommit | null>(null);
   const [trace, setTrace] = useState<Trace | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,6 +99,12 @@ function App() {
     }
   }
 
+  async function copy(value: string, label: string) {
+    await navigator.clipboard?.writeText(value);
+    setCopied(label);
+    window.setTimeout(() => setCopied(null), 1400);
+  }
+
   return (
     <main className="shell">
       <section className="hero">
@@ -118,6 +135,21 @@ function App() {
       <section className="workspace">
         <form className="panel chat" onSubmit={submitChat}>
           <h2>Agent Chat</h2>
+          <div className="samples" aria-label="Sample prompts">
+            {SAMPLE_PROMPTS.map((sample) => (
+              <button
+                key={sample.label}
+                type="button"
+                className="sample-button"
+                onClick={() => {
+                  setMessage(sample.text);
+                  setMode(sample.mode);
+                }}
+              >
+                {sample.label}
+              </button>
+            ))}
+          </div>
           <label>
             Message
             <textarea value={message} onChange={(event) => setMessage(event.target.value)} />
@@ -146,7 +178,12 @@ function App() {
         <section className="panel response">
           <h2>Response</h2>
           {error && <p className="error">{error}</p>}
-          {response ? <ResponseView response={response} onTrace={loadTrace} /> : <p>No response yet.</p>}
+          {copied && <p className="notice">Copied {copied}</p>}
+          {response ? (
+            <ResponseView response={response} onTrace={loadTrace} onCopy={copy} busy={busy} />
+          ) : (
+            <p>No response yet.</p>
+          )}
           {proposal && (
             <ConfirmationCard
               proposal={proposal}
@@ -155,6 +192,7 @@ function App() {
               onConfirm={submitConfirmation}
               commit={commit}
               busy={busy}
+              onCopy={copy}
             />
           )}
         </section>
@@ -165,7 +203,17 @@ function App() {
   );
 }
 
-function ResponseView({ response, onTrace }: { response: AgentResponse; onTrace: () => void }) {
+function ResponseView({
+  response,
+  onTrace,
+  onCopy,
+  busy
+}: {
+  response: AgentResponse;
+  onTrace: () => void;
+  onCopy: (value: string, label: string) => void;
+  busy: boolean;
+}) {
   return (
     <div className="response-body">
       <div className={`status ${response.status.toLowerCase()}`}>{response.status}</div>
@@ -174,10 +222,16 @@ function ResponseView({ response, onTrace }: { response: AgentResponse; onTrace:
       <dl>
         <dt>Provider</dt><dd>{response.provider ?? 'n/a'}</dd>
         <dt>Model</dt><dd>{response.model ?? 'n/a'}</dd>
-        <dt>Trace</dt><dd>{response.traceId}</dd>
+        <dt>Trace</dt>
+        <dd>
+          {shortId(response.traceId)}
+          <button type="button" className="link-button" onClick={() => onCopy(response.traceId, 'trace ID')}>
+            Copy
+          </button>
+        </dd>
         <dt>Tools</dt><dd>{response.toolCalls.join(', ') || 'none'}</dd>
       </dl>
-      <button type="button" onClick={onTrace}>Load trace</button>
+      <button type="button" onClick={onTrace} disabled={busy}>{busy ? 'Loading...' : 'Load trace'}</button>
       <pre>{JSON.stringify(response.results, null, 2)}</pre>
     </div>
   );
@@ -189,7 +243,8 @@ function ConfirmationCard({
   setIdempotencyKey,
   onConfirm,
   commit,
-  busy
+  busy,
+  onCopy
 }: {
   proposal: ConfirmationProposal;
   idempotencyKey: string;
@@ -197,19 +252,38 @@ function ConfirmationCard({
   onConfirm: () => void;
   commit: ReservationCommit | null;
   busy: boolean;
+  onCopy: (value: string, label: string) => void;
 }) {
+  const committed = confirmationCommitted(commit);
   return (
     <article className="confirmation">
       <h3>Protected Reservation</h3>
       <p>{proposal.quantity} units of {proposal.sku} require confirmation before stock changes.</p>
+      <p>
+        Confirmation <code>{shortId(proposal.confirmationId)}</code>
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => onCopy(proposal.confirmationId, 'confirmation ID')}
+        >
+          Copy
+        </button>
+      </p>
       <small>Expires at {proposal.expiresAt}</small>
       <label>
         Idempotency key
-        <input value={idempotencyKey} onChange={(event) => setIdempotencyKey(event.target.value)} />
+        <input
+          value={idempotencyKey}
+          disabled={committed}
+          onChange={(event) => setIdempotencyKey(event.target.value)}
+        />
       </label>
-      <button type="button" onClick={onConfirm} disabled={busy || idempotencyKey.length < 8}>
-        Confirm reservation
+      <button type="button" onClick={onConfirm} disabled={busy || committed || idempotencyKey.length < 8}>
+        {committed ? 'Reservation confirmed' : busy ? 'Confirming...' : 'Confirm reservation'}
       </button>
+      {commit?.remaining !== null && commit?.remaining !== undefined && (
+        <p className="stock">Remaining stock: <strong>{commit.remaining}</strong></p>
+      )}
       {commit && <pre>{JSON.stringify(commit, null, 2)}</pre>}
     </article>
   );
