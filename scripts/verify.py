@@ -18,7 +18,7 @@ def fingerprint(root):
     digest = hashlib.sha256()
     for path in sorted(root.rglob("*")):
         if not path.is_file() or any(
-            part in {".git", "target", "__pycache__"}
+            part in {".git", "target", "__pycache__", "node_modules", "dist"}
             for part in path.relative_to(root).parts
         ):
             continue
@@ -154,9 +154,13 @@ def main():
         env=env,
         check=True,
     )
+    subprocess.run(
+        ["npm", "--prefix", "frontend", "run", "verify"], env=env, check=True
+    )
     if fingerprint(ROOT) != before:
         raise ValueError("Source changed during verification; rerun the gate")
     results = collect_results(ROOT, started)
+    results["frontend:npm-run-verify"] = ["passed"]
     evidence = verify_requirements(
         json.loads((ROOT / "config/requirements.json").read_text()), results
     )

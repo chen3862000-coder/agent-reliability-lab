@@ -1,8 +1,8 @@
 # Agent Instructions
 
 ## Current Scope
-- M3 is approved and implemented: M2 protected reservation plus deterministic offline evaluation in `arl-evaluation`.
-- Do not add Docker, frontend, live evaluation claims, or broader commerce writes without approval for later milestones.
+- M4 is approved and implemented: M2 protected reservation, M3 deterministic offline evaluation and a React demo frontend.
+- Do not add Docker, live evaluation claims, or broader commerce writes without approval for later milestones.
 - See `docs/m1-implementation.md` for current behavior and limitations.
 
 ## Toolchain
@@ -14,6 +14,7 @@
 ## Commands
 - Canonical verification: `make verify` (also `make test`): Maven checks plus requirement evidence.
 - Offline evaluation report: `make evaluate`; writes `target/evaluation/report.json` and does not call paid providers.
+- Frontend verification: `make frontend-verify`; dev server: `make frontend-dev` after `make start`.
 - Java-only verification: `./mvnw clean verify`; formatting: `make format`.
 - Run the M1 app: `make start` or `./scripts/start-arl-server.sh`; it builds and starts the HTTP server on loopback port 8080. `make run` is an alias.
 - Focus one module: `./mvnw -pl arl-core test` or `./mvnw -pl arl-server test`.
@@ -23,7 +24,8 @@
 ## Architecture Boundaries
 - `arl-core` owns provider registry/configuration and `ReactAgentFactory`; it should stay independent of Spring Boot composition.
 - `arl-server` is the Spring Boot composition root and depends on `arl-core`.
-- Create new modules only when they contain executable functionality; docs explicitly defer `arl-evaluation` and `frontend`.
+- `arl-evaluation` is the offline evaluation module; `frontend` is API-client-only and must not own safety decisions.
+- Create new modules only when they contain executable functionality.
 - Use Alibaba `ReactAgent`; do not implement a custom ReAct loop.
 
 ## Provider Gotchas

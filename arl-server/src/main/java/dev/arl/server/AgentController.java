@@ -65,7 +65,7 @@ public final class AgentController {
 
   @GetMapping("/health")
   public Map<String, String> health() {
-    return Map.of("status", "UP", "milestone", "M2");
+    return Map.of("status", "UP", "milestone", "M4");
   }
 
   @GetMapping("/providers")
