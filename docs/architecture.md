@@ -6,7 +6,7 @@ Alibaba `ReactAgent` for model interaction and tool selection, while ARL owns pr
 configuration, tool contracts, execution boundaries, response mapping and trace evidence.
 
 This document describes the intended final architecture, then calls out what is currently
-implemented in M2 and what changes in later milestones.
+implemented in M4 and what remains future work.
 
 ## Architecture Goals
 
@@ -16,6 +16,7 @@ implemented in M2 and what changes in later milestones.
 - Treat provider output as untrusted until validated against tool contracts and domain rules.
 - Preserve an auditable path from user request to model call, tool proposal, tool result and final response.
 - Add protected writes only behind deterministic authorization, confirmation, transaction and idempotency controls.
+- Keep UI and evaluation code outside the trusted execution boundary; both consume APIs or core services but do not own safety decisions.
 
 ## High-Level Architecture
 
@@ -23,10 +24,11 @@ implemented in M2 and what changes in later milestones.
 
 ARL is a small layered system:
 
-- **Interface layer**: HTTP clients call Spring MVC endpoints in `arl-server`. Controllers own transport validation and HTTP status mapping, not business execution.
+- **Interface layer**: HTTP clients and the M4 React frontend call Spring MVC endpoints in `arl-server`. Controllers own transport validation and HTTP status mapping, not business execution.
 - **Application orchestration layer**: `AgentExecutionService` coordinates one request at a time, resolves provider/model metadata, creates a fresh agent and converts observed tool results into the API response.
 - **Agent, provider and tool layer**: Alibaba `ReactAgent` runs the reasoning graph. `ProviderRegistry` supplies immutable DeepSeek/Grok `ChatModel` instances. `CommerceToolRegistry` supplies callback contracts, strict JSON argument validation and deterministic tool results.
-- **Domain and reliability boundary**: M2 reads deterministic `CommerceCatalog` fixtures and mutates inventory only through confirmation-gated SQLite transactions with idempotency records. SQLite may run in-memory or file-backed via `ARL_DB_PATH`.
+- **Domain and reliability boundary**: M4 reads deterministic `CommerceCatalog` fixtures and mutates inventory only through confirmation-gated SQLite transactions with idempotency records. SQLite may run in-memory or file-backed via `ARL_DB_PATH`.
+- **Evaluation and demo layer**: `arl-evaluation` runs deterministic offline scenarios with scripted models, while `frontend` provides a browser demo that remains API-client-only.
 
 ## Modules and Ownership
 
@@ -38,7 +40,7 @@ Owns reusable agent and reliability logic:
 - `ReactAgentFactory`: fresh Alibaba `ReactAgent` graph plus model-call limit hook per request.
 - `AgentExecutionService`: orchestration, model/tool observation, bounded execution, sanitized error mapping and result construction.
 - `CommerceToolRegistry`: central tool contracts, schemas, validation, callback creation and deterministic tool execution.
-- `CommerceCatalog`: current immutable synthetic commerce data.
+- `CommerceCatalog`: SQLite-backed synthetic commerce data, reservation confirmations and idempotency records.
 - `TraceStore`: bounded in-memory trace snapshots.
 
 `arl-core` must stay independent of Spring Boot composition and must not depend on `arl-server`.
@@ -48,15 +50,31 @@ Owns reusable agent and reliability logic:
 Owns runtime composition and HTTP transport:
 
 - `ArlApplication`: Spring Boot entrypoint, bean wiring and environment/YAML-backed provider settings.
-- `AgentController`: `/agent/chat`, `/health`, `/providers` and `/traces/{traceId}` endpoints.
+- `AgentController`: `/agent/chat`, `/agent/confirm`, `/health`, `/providers` and `/traces/{traceId}` endpoints.
 - `ApiErrors`: sanitized routing and framework error responses.
 
 `arl-server` depends on `arl-core`; dependency direction does not reverse.
 
-### Future Modules
+### `arl-evaluation`
 
-- `arl-evaluation`: independent offline runner for isolated fixtures, scripted-model fault injection, metrics and JSON reports. It does not run during normal application startup.
-- `frontend` (planned M4): React/TypeScript client of server APIs. It must not own authorization decisions.
+Owns deterministic offline evaluation:
+
+- `EvaluationRunner`: executes code-defined scenarios against isolated `CommerceCatalog` state and scripted `ChatModel` responses.
+- `EvaluationReport`: JSON report model with pass/fail, safety, protected-write and trace-completeness metrics.
+- `EvaluationMain`: command-line entry point used by `make evaluate`.
+
+`arl-evaluation` depends on `arl-core`; it does not run during normal server startup and does not call paid providers.
+
+### `frontend`
+
+Owns the M4 browser demo:
+
+- Vite React TypeScript app under `frontend/`.
+- API client functions for `/providers`, `/agent/chat`, `/agent/confirm` and `/traces/{traceId}`.
+- UI panels for provider status, agent chat, protected reservation confirmation and trace viewing.
+- Tests for confirmation extraction and client-generated idempotency key formatting.
+
+The frontend is intentionally not a safety boundary. It never calls model providers directly, never reads SQLite directly and never authorizes writes; it only sends backend-issued confirmation IDs plus client-generated idempotency keys to the server.
 
 Create new modules only when they contain executable functionality.
 
@@ -76,13 +94,25 @@ Main request flow for `POST /agent/chat`:
 8. The final API response contains status, message, sanitized error code when present, trace ID, provider/model metadata, observed tool names and structured results.
 9. `TraceStore` retains immutable snapshots of completed traces for later lookup.
 
-Important M1 behavior: model narrative is not exposed as business truth. A successful response is built from observed tool results, and a tool/provider failure remains a failure even if the model later claims success.
+Important current behavior: model narrative is not exposed as business truth. A successful response is built from observed tool results, and a tool/provider failure remains a failure even if the model later claims success.
+
+## Frontend Demo Flow
+
+The M4 frontend adds a browser workflow over the same backend APIs:
+
+1. Vite dev server serves the React app on `127.0.0.1:5173` and proxies `/agent`, `/providers`, `/health` and `/traces` to `127.0.0.1:8080`.
+2. The provider panel calls `GET /providers` and shows configured status and model names. Configured does not mean live-verified.
+3. The chat form posts `message`, `provider` and `mode` to `POST /agent/chat`.
+4. The response panel displays server-returned status, message, error code, model metadata, trace ID, tool calls and structured tool results.
+5. If a protected reservation proposal includes `confirmationId`, the frontend shows a confirmation card and generates a client idempotency key.
+6. The confirmation card posts `confirmationId` and `idempotencyKey` to `POST /agent/confirm`; only the backend mutates stock.
+7. The trace viewer calls `GET /traces/{traceId}` and displays the ordered trace events returned by the backend.
 
 ## Execution and Trust Boundaries
 
-### Current M2 Boundary
+### Current M4 Boundary
 
-Baseline tools are local and read-only except for `reserve_inventory`, which validates a proposal and returns `RESERVATION_NOT_ENABLED`. Protected mode creates a confirmation token for `reserve_inventory`; `POST /agent/confirm` consumes that token with a client idempotency key before stock changes.
+Baseline tools are local and read-only except for `reserve_inventory`, which validates a proposal and returns `RESERVATION_NOT_ENABLED`. Protected mode creates a confirmation token for `reserve_inventory`; `POST /agent/confirm` consumes that token with a client idempotency key before stock changes. The React frontend can present this flow, but the trusted boundary remains on the backend.
 
 The current trusted boundary is:
 
@@ -94,7 +124,7 @@ Future write execution should keep this stricter boundary:
 
 `ReactAgent -> registered ToolCallback -> SafeToolExecutor -> strict argument validation -> business constraints -> policy -> trusted authorization -> transaction -> domain result`
 
-Key rules for M2:
+Key rules for protected writes:
 
 - The callback is the only protected tool entry point.
 - Tool interceptors may trace, but interceptors alone are not the authorization boundary.
@@ -124,7 +154,7 @@ Design decisions:
 
 ## Trace and Response Model
 
-Traces are diagnostic evidence, not durable audit records in M2. The latest 256 completed traces are retained in memory and evicted afterward.
+Traces are diagnostic evidence, not durable audit records in M4. The latest 256 completed traces are retained in memory and evicted afterward.
 
 Trace events include:
 
@@ -139,20 +169,30 @@ Trace events include:
 
 Responses include `status`, `message`, `errorCode`, `traceId`, `provider`, `model`, `toolCalls` and `results`. Provider exceptions and routing errors are sanitized; raw provider details and credentials are not returned.
 
+## Evaluation Architecture
+
+M3/M4 verification separates deterministic offline evaluation from live provider claims:
+
+- `make evaluate` runs `arl-evaluation` with scripted models and isolated SQLite catalog state per scenario.
+- The report is written to `target/evaluation/report.json` and includes pass/fail counts, safety violations, protected-write passes and trace completeness.
+- Evaluation scenarios exercise read flow, malformed arguments, unknown tools, provider failure, insufficient inventory, baseline no-write behavior and protected reservation confirmation.
+- The offline suite does not use provider API keys, does not measure live model quality and does not establish provider entitlement.
+
 ## Key Design Decisions
 
 - **Use Alibaba `ReactAgent`, not a custom ReAct loop.** ARL verifies framework integration instead of reimplementing graph execution.
 - **Keep core independent from Boot composition.** `arl-core` contains reusable agent/domain logic; `arl-server` wires runtime beans and HTTP transport.
 - **Prefer deterministic tool results over model narrative.** The model can select tools, but observed tool output drives business responses.
 - **Fail explicitly rather than falling back.** Unknown provider, unconfigured provider, unsupported mode and invalid requests have explicit error codes.
-- **Bound execution.** M2 caps model calls, accepted tool proposals, provider timeout, output tokens and trace retention.
+- **Bound execution.** M4 caps model calls, accepted tool proposals, provider timeout, output tokens and trace retention.
 - **Confirm writes outside the model loop.** The model may propose a reservation, but stock changes only through `POST /agent/confirm` with a client idempotency key.
 - **Separate offline verification from live provider claims.** Stubbed tests prove wiring and regression behavior; live accuracy/entitlement remain opt-in evidence.
 - **Keep evaluation deterministic by default.** M3 scenarios use scripted models and isolated SQLite state so reports are reproducible and do not depend on paid provider behavior.
+- **Keep the frontend thin.** M4 improves demo usability, but all validation, confirmation, idempotency and mutation decisions stay in backend/core code.
 
 ## Current Phase vs Upcoming Changes
 
-Current M3 implementation:
+Current M4 Implementation:
 
 - Synthetic commerce agent with REST chat, protected reservation confirmation and traces.
 - `BASELINE` mode for reads/proposals and `PROTECTED` mode for confirmation-gated reservation proposals.
@@ -160,10 +200,15 @@ Current M3 implementation:
 - DeepSeek/Grok provider configuration and offline transport regressions.
 - Confirmed reservation execution with idempotency-key replay protection and stock mutation.
 - Offline evaluation runner with JSON report metrics for safety, trace completeness and protected writes.
+- React/Vite frontend demo for provider status, chat, confirmation and trace viewing.
+- `make verify` validates Java modules, requirement evidence and frontend tests/build; `make frontend-verify` focuses the UI.
 
-Upcoming planned changes:
+Upcoming Changes:
 
-- Live/provider-quality evaluation remains future work; M3 currently covers deterministic offline behavior only.
-- **M4**: frontend dashboard consuming server APIs without owning authorization decisions.
+- Live/provider-quality evaluation remains future work; current evaluation covers deterministic offline behavior only.
+- Production deployment concerns remain future work: authentication, durable trace/audit storage, Docker/container packaging and hosted deployment.
+- Broader commerce writes beyond `reserve_inventory` require separate approval and equivalent protected-write evidence.
+- Ambiguous write-failure reconciliation can be hardened beyond recorded idempotent results.
+- Frontend polish can continue, but frontend code must remain API-client-only and must not own authorization decisions.
 
-Do not claim M3/M4 behavior until the relevant milestone is approved, implemented and verified by `make verify` plus any required live/manual evidence.
+Do not claim future behavior until the relevant milestone is approved, implemented and verified by `make verify` plus any required live/manual evidence.
