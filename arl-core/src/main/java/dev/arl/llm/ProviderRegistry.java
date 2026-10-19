@@ -27,6 +27,19 @@ public final class ProviderRegistry implements LlmProviderRegistry {
     defaultProvider = value(env, "ARL_DEFAULT_PROVIDER", "deepseek");
     if (!Set.of("deepseek", "grok").contains(defaultProvider))
       throw new ProviderException(UNKNOWN_PROVIDER);
+    var settings = settings(env);
+    Map<String, ChatModel> clients = new LinkedHashMap<>();
+    List<LlmProviderInfo> details = new ArrayList<>();
+    for (String id : List.of("deepseek", "grok")) {
+      var descriptor = descriptor(env, id);
+      details.add(info(descriptor));
+      if (descriptor.configured()) clients.put(id, model(descriptor, endpoints.get(id), settings));
+    }
+    models = Map.copyOf(clients);
+    infos = List.copyOf(details);
+  }
+
+  private static RegistrySettings settings(Map<String, String> env) {
     int seconds = Integer.parseInt(value(env, "ARL_LLM_TIMEOUT_SECONDS", "30"));
     if (seconds < 1 || seconds > 300)
       throw new IllegalArgumentException("Timeout must be 1..300 seconds");
@@ -37,79 +50,82 @@ public final class ProviderRegistry implements LlmProviderRegistry {
     if (temperature != null
         && (!Double.isFinite(temperature) || temperature < 0 || temperature > 2))
       throw new IllegalArgumentException("Temperature must be 0..2");
-    Map<String, ChatModel> clients = new LinkedHashMap<>();
-    List<LlmProviderInfo> details = new ArrayList<>();
-    for (String id : List.of("deepseek", "grok")) {
-      boolean deepseek = id.equals("deepseek");
-      String model =
-          value(
-              env,
-              deepseek ? "DEEPSEEK_MODEL" : "GROK_MODEL",
-              deepseek ? "deepseek-flash" : "grok-4.7");
-      String key = env.get(deepseek ? "DEEPSEEK_API_KEY" : "XAI_API_KEY");
-      boolean configured = key != null && !key.isBlank();
-      // Unknown model overrides must not inherit unverified capabilities.
-      boolean documented =
-          deepseek
-              ? Set.of("deepseek-flash", "deepseek-v4-pro").contains(model)
-              : model.equals("grok-4.7");
-      var support = documented ? DOCUMENTED : UNVERIFIED;
-      details.add(
-          new LlmProviderInfo(
-              id,
-              model,
-              configured
-                  ? LlmProviderInfo.Status.CONFIGURED
-                  : LlmProviderInfo.Status.NOT_CONFIGURED,
-              new LlmProviderInfo.Capabilities(
-                  support, support, UNVERIFIED, NOT_ENABLED, NOT_ENABLED, support)));
-      if (!configured) continue;
-      var requestFactory =
-          new JdkClientHttpRequestFactory(
-              HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(seconds)).build());
-      requestFactory.setReadTimeout(Duration.ofSeconds(seconds));
-      var rest = RestClient.builder().requestFactory(requestFactory);
-      // Spring AI 2.0.0-M1's OpenAI request merge drops extraBody during tool registration. Keep
-      // this
-      // provider-specific transport workaround until an upstream upgrade is verified.
-      if (deepseek)
-        rest.requestInterceptor(
-            (request, body, execution) -> {
-              var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-              var json = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(body);
-              json.putObject("thinking").put("type", "disabled");
-              byte[] patched = mapper.writeValueAsBytes(json);
-              request.getHeaders().setContentLength(patched.length);
-              return execution.execute(request, patched);
-            });
-      var api =
-          OpenAiApi.builder()
-              .baseUrl(endpoints.get(id))
-              .completionsPath(deepseek ? "/chat/completions" : "/v1/chat/completions")
-              .apiKey(key)
-              .restClientBuilder(rest)
-              .build();
-      var options =
-          OpenAiChatOptions.builder()
-              .model(model)
-              .maxTokens(1024)
-              .internalToolExecutionEnabled(false);
-      // This pinned adapter cannot round-trip DeepSeek reasoning_content. Explicitly disable
-      // thinking.
-      if (deepseek) options.temperature(temperature);
-      var noRetry =
-          new org.springframework.core.retry.RetryTemplate(
-              org.springframework.core.retry.RetryPolicy.builder().maxRetries(0).build());
-      clients.put(
-          id,
-          OpenAiChatModel.builder()
-              .openAiApi(api)
-              .defaultOptions(options.build())
-              .retryTemplate(noRetry)
-              .build());
-    }
-    models = Map.copyOf(clients);
-    infos = List.copyOf(details);
+    return new RegistrySettings(seconds, temperature);
+  }
+
+  private static ProviderDescriptor descriptor(Map<String, String> env, String id) {
+    boolean deepseek = id.equals("deepseek");
+    String model =
+        value(
+            env,
+            deepseek ? "DEEPSEEK_MODEL" : "GROK_MODEL",
+            deepseek ? "deepseek-flash" : "grok-4.7");
+    String key = env.get(deepseek ? "DEEPSEEK_API_KEY" : "XAI_API_KEY");
+    return new ProviderDescriptor(id, deepseek, model, key, key != null && !key.isBlank());
+  }
+
+  private static LlmProviderInfo info(ProviderDescriptor descriptor) {
+    // Unknown model overrides must not inherit unverified capabilities.
+    boolean documented =
+        descriptor.deepseek()
+            ? Set.of("deepseek-flash", "deepseek-v4-pro").contains(descriptor.model())
+            : descriptor.model().equals("grok-4.7");
+    var support = documented ? DOCUMENTED : UNVERIFIED;
+    return new LlmProviderInfo(
+        descriptor.id(),
+        descriptor.model(),
+        descriptor.configured()
+            ? LlmProviderInfo.Status.CONFIGURED
+            : LlmProviderInfo.Status.NOT_CONFIGURED,
+        new LlmProviderInfo.Capabilities(
+            support, support, UNVERIFIED, NOT_ENABLED, NOT_ENABLED, support));
+  }
+
+  private static ChatModel model(
+      ProviderDescriptor descriptor, String endpoint, RegistrySettings settings) {
+    var api = api(descriptor, endpoint, settings.seconds());
+    var options =
+        OpenAiChatOptions.builder()
+            .model(descriptor.model())
+            .maxTokens(1024)
+            .internalToolExecutionEnabled(false);
+    if (descriptor.deepseek()) options.temperature(settings.temperature());
+    var noRetry =
+        new org.springframework.core.retry.RetryTemplate(
+            org.springframework.core.retry.RetryPolicy.builder().maxRetries(0).build());
+    return OpenAiChatModel.builder()
+        .openAiApi(api)
+        .defaultOptions(options.build())
+        .retryTemplate(noRetry)
+        .build();
+  }
+
+  private static OpenAiApi api(ProviderDescriptor descriptor, String endpoint, int seconds) {
+    var requestFactory =
+        new JdkClientHttpRequestFactory(
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(seconds)).build());
+    requestFactory.setReadTimeout(Duration.ofSeconds(seconds));
+    var rest = RestClient.builder().requestFactory(requestFactory);
+    if (descriptor.deepseek()) rest.requestInterceptor(ProviderRegistry::disableDeepseekThinking);
+    return OpenAiApi.builder()
+        .baseUrl(endpoint)
+        .completionsPath(descriptor.deepseek() ? "/chat/completions" : "/v1/chat/completions")
+        .apiKey(descriptor.key())
+        .restClientBuilder(rest)
+        .build();
+  }
+
+  private static org.springframework.http.client.ClientHttpResponse disableDeepseekThinking(
+      org.springframework.http.HttpRequest request,
+      byte[] body,
+      org.springframework.http.client.ClientHttpRequestExecution execution)
+      throws java.io.IOException {
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    var json = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(body);
+    json.putObject("thinking").put("type", "disabled");
+    byte[] patched = mapper.writeValueAsBytes(json);
+    request.getHeaders().setContentLength(patched.length);
+    return execution.execute(request, patched);
   }
 
   @Override
@@ -131,4 +147,9 @@ public final class ProviderRegistry implements LlmProviderRegistry {
     String v = env.get(key);
     return v == null || v.isBlank() ? fallback : v;
   }
+
+  private record RegistrySettings(int seconds, Double temperature) {}
+
+  private record ProviderDescriptor(
+      String id, boolean deepseek, String model, String key, boolean configured) {}
 }

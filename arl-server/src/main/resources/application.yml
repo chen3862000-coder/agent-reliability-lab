@@ -18,6 +18,8 @@ logging:
     com.alibaba.cloud.ai.graph: WARN
 
 arl:
+  db:
+    path: ${ARL_DB_PATH:}
   llm:
     default-provider: ${ARL_DEFAULT_PROVIDER:deepseek}
     timeout-seconds: ${ARL_LLM_TIMEOUT_SECONDS:30}

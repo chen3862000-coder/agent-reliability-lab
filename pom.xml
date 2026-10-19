@@ -19,6 +19,7 @@
   <modules>
     <module>arl-core</module>
     <module>arl-server</module>
+    <module>arl-evaluation</module>
   </modules>
   <dependencyManagement>
     <dependencies>
@@ -101,6 +102,28 @@
             <phase>validate</phase>
             <goals>
               <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pmd-plugin</artifactId>
+        <version>3.28.0</version>
+        <configuration>
+          <minimumTokens>55</minimumTokens>
+          <printFailingErrors>true</printFailingErrors>
+          <excludeRoots>
+            <excludeRoot>${project.build.directory}/generated-sources</excludeRoot>
+            <excludeRoot>${project.build.directory}/generated-test-sources</excludeRoot>
+          </excludeRoots>
+        </configuration>
+        <executions>
+          <execution>
+            <id>duplicate-code-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>cpd-check</goal>
             </goals>
           </execution>
         </executions>

@@ -7,24 +7,25 @@ deterministic reliability controls around LLM agents. The core idea is simple:
 LLMs may propose actions, but application-owned systems validate, bound, trace
 and execute them.
 
-The current app is a local read-only commerce agent backed by synthetic product,
-inventory and order fixtures. It uses Alibaba `ReactAgent` for the reasoning loop
-and Spring AI OpenAI-compatible clients for DeepSeek and Grok.
+The current app is a local commerce reliability lab backed by synthetic product,
+inventory and order fixtures. It supports read-only agent tools plus protected,
+confirmation-gated inventory reservations. It uses Alibaba `ReactAgent` for the
+reasoning loop and Spring AI OpenAI-compatible clients for DeepSeek and Grok.
 
 ## What It Does
 
 - Exposes a loopback HTTP API for agent chat, health, provider status and traces.
 - Lets a model call read-only commerce tools: `get_product`, `get_inventory` and `get_order`.
-- Keeps `reserve_inventory` proposal-only: it validates input but never mutates stock.
+- Keeps baseline `reserve_inventory` proposal-only, while protected mode creates a confirmation token that must be consumed through `/agent/confirm` before stock changes.
 - Returns structured tool results instead of trusting model narrative as business truth.
 - Records bounded in-memory traces for model calls, tool proposals, tool execution and errors.
 - Selects `deepseek` or `grok` per request with explicit errors and no provider fallback.
+- Runs deterministic offline evaluation scenarios with JSON metrics.
 
 ## What It Is Not
 
-ARL is not a production commerce system. M1 has no authentication, durable trace store,
-SQLite writes, protected mode, confirmation flow, transactional idempotency, evaluation
-runner, Docker packaging or frontend dashboard. Those are later milestones.
+ARL is not a production commerce system. M2 has no authentication, durable trace store,
+evaluation runner, Docker packaging or frontend dashboard. Those are later milestones.
 
 For current milestone status and limitations, see [project status](docs/project-status.md).
 
@@ -35,6 +36,7 @@ For current milestone status and limitations, see [project status](docs/project-
 - Spring AI 2.0.0-M1 OpenAI-compatible chat adapter
 - Alibaba Agent Framework 2.0.0-M1.1 `ReactAgent`
 - JUnit, Spotless, Checkstyle and JaCoCo through the Maven reactor
+- Offline evaluation module with scripted-model scenarios
 - Python requirement-evidence gate in `scripts/verify.py`
 
 Configuration lives in `arl-server/src/main/resources/application.yml` and reads secrets
@@ -46,6 +48,7 @@ from environment variables. Runtime and verification details are in
 - `arl-core`: provider registry, ReactAgent factory, agent execution service, tools,
   domain fixtures and trace store.
 - `arl-server`: Spring Boot composition root and HTTP controllers.
+- `arl-evaluation`: deterministic offline evaluation runner and report generation.
 - `config/requirements.json`: automated requirement-to-test mappings.
 - `docs/`: architecture, compatibility, status, requirements, quality and review notes.
 - `scripts/`: start script and quality gate tooling.
@@ -70,6 +73,16 @@ curl http://127.0.0.1:8080/agent/chat -H 'Content-Type: application/json' \
 curl http://127.0.0.1:8080/traces/TRACE_ID_FROM_RESPONSE
 ```
 
+Protected reservation flow:
+
+```sh
+curl http://127.0.0.1:8080/agent/chat -H 'Content-Type: application/json' \
+  -d '{"message":"Reserve 3 units of SKU-1001","provider":"deepseek","mode":"PROTECTED"}'
+
+curl http://127.0.0.1:8080/agent/confirm -H 'Content-Type: application/json' \
+  -d '{"confirmationId":"CONFIRMATION_ID_FROM_CHAT","idempotencyKey":"client-key-12345"}'
+```
+
 Provider setup is environment-based:
 
 ```sh
@@ -80,6 +93,8 @@ make start
 
 Use `XAI_API_KEY` and `ARL_DEFAULT_PROVIDER=grok` for Grok. See
 [requirements](docs/requirements.md) for all supported variables.
+
+Set `ARL_DB_PATH=/path/to/arl.db` to preserve inventory and idempotency records across restarts. Leave it blank for an in-memory database.
 
 ## Verify
 
@@ -93,6 +108,14 @@ formatting.
 
 Default tests use scripted models and loopback HTTP stubs, not paid provider APIs. Live
 provider smoke tests are opt-in with `make live-test` after exporting credentials.
+
+Run offline evaluation separately when you want the scenario report:
+
+```sh
+make evaluate
+```
+
+The report is written to `target/evaluation/report.json`.
 
 ## Documentation
 
