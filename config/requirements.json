@@ -1,5 +1,5 @@
 {
-  "milestone": "M3",
+  "milestone": "M4",
   "requirements": [
     {
       "id": "M0-JAVA27",
@@ -143,9 +143,11 @@
     },
     {
       "id": "M4-DEMO",
-      "description": "React dashboard and portfolio demo",
-      "status": "deferred",
-      "reason": "M4 scope."
+      "description": "React dashboard consumes backend APIs without owning safety decisions",
+      "status": "automated",
+      "tests": [
+        "frontend:npm-run-verify"
+      ]
     },
     {
       "id": "M1-READS",

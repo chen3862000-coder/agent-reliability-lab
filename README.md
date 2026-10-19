@@ -21,11 +21,12 @@ reasoning loop and Spring AI OpenAI-compatible clients for DeepSeek and Grok.
 - Records bounded in-memory traces for model calls, tool proposals, tool execution and errors.
 - Selects `deepseek` or `grok` per request with explicit errors and no provider fallback.
 - Runs deterministic offline evaluation scenarios with JSON metrics.
+- Includes a React demo UI for chat, protected confirmations, provider status and traces.
 
 ## What It Is Not
 
-ARL is not a production commerce system. M2 has no authentication, durable trace store,
-evaluation runner, Docker packaging or frontend dashboard. Those are later milestones.
+ARL is not a production commerce system. M4 has no authentication, durable trace store,
+Docker packaging or live evaluation dashboard. Those are later milestones.
 
 For current milestone status and limitations, see [project status](docs/project-status.md).
 
@@ -37,6 +38,7 @@ For current milestone status and limitations, see [project status](docs/project-
 - Alibaba Agent Framework 2.0.0-M1.1 `ReactAgent`
 - JUnit, Spotless, Checkstyle and JaCoCo through the Maven reactor
 - Offline evaluation module with scripted-model scenarios
+- Vite React TypeScript frontend
 - Python requirement-evidence gate in `scripts/verify.py`
 
 Configuration lives in `arl-server/src/main/resources/application.yml` and reads secrets
@@ -49,6 +51,7 @@ from environment variables. Runtime and verification details are in
   domain fixtures and trace store.
 - `arl-server`: Spring Boot composition root and HTTP controllers.
 - `arl-evaluation`: deterministic offline evaluation runner and report generation.
+- `frontend`: Vite React TypeScript demo UI; API client only, no authorization logic.
 - `config/requirements.json`: automated requirement-to-test mappings.
 - `docs/`: architecture, compatibility, status, requirements, quality and review notes.
 - `scripts/`: start script and quality gate tooling.
@@ -116,6 +119,15 @@ make evaluate
 ```
 
 The report is written to `target/evaluation/report.json`.
+
+Run the frontend after starting the backend:
+
+```sh
+make frontend-install
+make frontend-dev
+```
+
+The Vite dev server proxies API calls to `http://127.0.0.1:8080`.
 
 ## Documentation
 

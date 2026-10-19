@@ -5,6 +5,7 @@ import unittest
 
 from verify import (
     collect_results,
+    fingerprint,
     validate_manifest,
     verify_requirements,
     check_boundaries,
@@ -97,6 +98,20 @@ class RequirementGateTest(unittest.TestCase):
             )
             with self.assertRaises(ValueError):
                 check_boundaries(root)
+
+    def test_fingerprint_ignores_frontend_build_artifacts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "frontend/node_modules/pkg").mkdir(parents=True)
+            (root / "frontend/dist").mkdir(parents=True)
+            (root / "frontend/src").mkdir(parents=True)
+            (root / "frontend/node_modules/pkg/index.js").write_text("ignored")
+            (root / "frontend/dist/app.js").write_text("ignored")
+            (root / "frontend/src/app.ts").write_text("tracked")
+            first = fingerprint(root)
+            (root / "frontend/node_modules/pkg/index.js").write_text("changed")
+            (root / "frontend/dist/app.js").write_text("changed")
+            self.assertEqual(first, fingerprint(root))
 
 
 if __name__ == "__main__":

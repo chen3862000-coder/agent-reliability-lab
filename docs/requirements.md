@@ -4,6 +4,7 @@
 
 - OpenJDK 27; the Maven reactor compiles with `java.version=27`.
 - Maven Wrapper 3.3.4 downloads Maven 3.9.11; use `./mvnw`, not a global Maven.
+- Node.js 24 and npm 11 are used for the frontend; `package-lock.json` pins the resolved dependency graph.
 - Python 3.9+ is required for the canonical quality gate.
 - First dependency resolution needs internet access. Cached Java verification can use `./mvnw -o clean verify`.
 - Normal tests require loopback socket access for HTTP adapter stubs.
@@ -16,6 +17,9 @@ make format       # apply Java formatting
 make start        # build and start arl-server on 127.0.0.1:8080 by default
 make run          # alias for make start
 make evaluate     # run deterministic offline evaluation and write target/evaluation/report.json
+make frontend-install # install frontend dependencies
+make frontend-dev # start Vite frontend dev server on 127.0.0.1:5173
+make frontend-verify # run frontend tests and production build
 make live-test    # opt-in paid provider smoke tests
 ```
 
@@ -131,3 +135,21 @@ SQLite catalog state per scenario. It writes `target/evaluation/report.json` wit
 
 The offline suite is deterministic and does not call paid providers. It is not evidence of
 live model accuracy or account entitlement.
+
+## Frontend
+
+The M4 frontend is a Vite React TypeScript app in `frontend/`. It is an API client only:
+provider selection, chat, reservation confirmation and trace display all call backend HTTP
+endpoints. It must not make provider calls, access SQLite directly or implement trusted
+authorization decisions.
+
+Run locally:
+
+```sh
+make start
+make frontend-install
+make frontend-dev
+```
+
+The dev server proxies `/agent`, `/health`, `/providers` and `/traces` to
+`http://127.0.0.1:8080`.

@@ -2,10 +2,10 @@
 
 ## Current Milestone
 
-M3 is implemented as a local protected reservation slice plus deterministic offline
-evaluation. Alibaba `ReactAgent` owns the reasoning loop; ARL owns tool contracts,
+M4 is implemented as a local protected reservation slice, deterministic offline evaluation
+and React demo UI. Alibaba `ReactAgent` owns the reasoning loop; ARL owns tool contracts,
 deterministic validation, confirmation-gated execution, idempotency, response mapping,
-trace capture and evaluation reporting.
+trace capture, evaluation reporting and backend safety decisions.
 
 Implemented behavior:
 
@@ -18,6 +18,7 @@ Implemented behavior:
 - Per-request agent execution with bounded model calls and bounded accepted tool proposals.
 - SQLite-backed synthetic commerce state, optional file-backed persistence, and in-memory trace retention for the latest 256 completed traces.
 - `arl-evaluation` offline scenario runner with isolated catalog state, scripted models, safety metrics and JSON reports.
+- `frontend` Vite React UI for providers, chat, protected reservation confirmation and trace viewing.
 
 ## Current Fixtures
 
@@ -32,15 +33,15 @@ Products and orders are deterministic. Inventory is mutable only through confirm
 The following are not implemented and should not be claimed without a later approved
 milestone:
 
-- Full user-facing confirmation workflow beyond the HTTP confirmation endpoint.
 - Ambiguous write failure reconciliation beyond recorded idempotent results.
 - Live/provider-quality evaluation suite; current M3 evaluation is intentionally offline and deterministic.
-- Evaluation runner, benchmark suite or live quality scoring.
-- Frontend dashboard, Docker packaging or production deployment flow.
+- Live quality scoring.
+- Docker packaging or production deployment flow.
 
 ## Known Limitations
 
 - This is a loopback demo with synthetic data and no authentication.
+- The frontend is an API client only; backend remains the safety and authorization boundary.
 - Provider startup status reports configuration only; it does not prove account entitlement or model availability.
 - Offline tests use scripted models and HTTP stubs; they do not prove live model quality.
 - Offline evaluation proves deterministic safety and flow behavior only; it does not benchmark live model accuracy.

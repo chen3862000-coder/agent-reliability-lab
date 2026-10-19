@@ -7,3 +7,7 @@ target/
 .DS_Store
 .arl-data/
 __pycache__/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/*.tsbuildinfo
