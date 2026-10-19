@@ -24,6 +24,8 @@ def fingerprint(root):
             continue
         if path.name.startswith(".env") and path.name != ".env.example":
             continue
+        if path.name.endswith(".tsbuildinfo"):
+            continue
         digest.update(str(path.relative_to(root)).encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()

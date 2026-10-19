@@ -107,10 +107,12 @@ class RequirementGateTest(unittest.TestCase):
             (root / "frontend/src").mkdir(parents=True)
             (root / "frontend/node_modules/pkg/index.js").write_text("ignored")
             (root / "frontend/dist/app.js").write_text("ignored")
+            (root / "frontend/tsconfig.tsbuildinfo").write_text("ignored")
             (root / "frontend/src/app.ts").write_text("tracked")
             first = fingerprint(root)
             (root / "frontend/node_modules/pkg/index.js").write_text("changed")
             (root / "frontend/dist/app.js").write_text("changed")
+            (root / "frontend/tsconfig.tsbuildinfo").write_text("changed")
             self.assertEqual(first, fingerprint(root))
 
 
