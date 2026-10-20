@@ -43,8 +43,20 @@ public class ArlApplication {
   }
 
   @Bean
-  dev.arl.tools.CommerceToolRegistry tools(dev.arl.domain.CommerceCatalog catalog) {
-    return new dev.arl.tools.CommerceToolRegistry(catalog);
+  dev.arl.tools.CommerceToolRegistry tools(
+      dev.arl.domain.CommerceCatalog catalog, dev.arl.tools.SafeToolExecutor safeExecutor) {
+    return new dev.arl.tools.CommerceToolRegistry(catalog, safeExecutor);
+  }
+
+  @Bean
+  dev.arl.tools.ReservationPolicy reservationPolicy() {
+    return new dev.arl.tools.ReservationPolicy();
+  }
+
+  @Bean
+  dev.arl.tools.SafeToolExecutor safeToolExecutor(
+      dev.arl.domain.CommerceCatalog catalog, dev.arl.tools.ReservationPolicy policy) {
+    return new dev.arl.tools.SafeToolExecutor(catalog, policy);
   }
 
   @Bean

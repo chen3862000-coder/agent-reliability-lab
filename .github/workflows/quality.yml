@@ -29,6 +29,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci --prefix frontend
+      - name: Audit frontend dependencies
+        run: npm --prefix frontend audit --audit-level=high
       - name: Offline quality and requirement gate
         run: make verify
       - name: Keep test, coverage and requirement evidence

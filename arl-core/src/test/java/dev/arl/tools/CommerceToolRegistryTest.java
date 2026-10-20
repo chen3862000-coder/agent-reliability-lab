@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.arl.domain.CommerceCatalog;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
@@ -199,6 +200,48 @@ class CommerceToolRegistryTest {
   }
 
   @Test
+  void separateCatalogConnectionsSerializeSameConfirmation() throws Exception {
+    var db = java.nio.file.Files.createTempFile("arl-cross-connection", ".db");
+    var first = CommerceCatalog.fileBacked(db.toString());
+    var second = CommerceCatalog.fileBacked(db.toString());
+    try {
+      var proposal = first.proposeReservation("SKU-1001", 6);
+      var start = new CountDownLatch(1);
+      try (var pool = Executors.newFixedThreadPool(2)) {
+        var one =
+            pool.submit(
+                () -> confirmAfter(start, first, proposal.confirmationId(), "conn-key-one"));
+        var two =
+            pool.submit(
+                () -> confirmAfter(start, second, proposal.confirmationId(), "conn-key-two"));
+        start.countDown();
+        var results = List.of(one.get(), two.get());
+        assertEquals(1, results.stream().filter(result -> result.errorCode() == null).count());
+        assertEquals(
+            1,
+            results.stream()
+                .filter(result -> "CONFIRMATION_ALREADY_USED".equals(result.errorCode()))
+                .count());
+      }
+      assertEquals(14, first.inventory("SKU-1001").available());
+      assertEquals(14, second.inventory("SKU-1001").available());
+    } finally {
+      first.close();
+      second.close();
+      java.nio.file.Files.deleteIfExists(db);
+      java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(db + "-wal"));
+      java.nio.file.Files.deleteIfExists(java.nio.file.Path.of(db + "-shm"));
+    }
+  }
+
+  private static CommerceCatalog.ReservationCommit confirmAfter(
+      CountDownLatch start, CommerceCatalog catalog, String confirmationId, String key)
+      throws InterruptedException {
+    start.await();
+    return catalog.confirmReservation(confirmationId, key);
+  }
+
+  @Test
   void contractsAndCallbacksExposeStructuredResults() throws Exception {
     var observed = new ArrayList<ToolResult>();
     var callbacks = tools.callbacks(observed::add);
@@ -208,7 +251,9 @@ class CommerceToolRegistryTest {
       assertFalse(mapper.readTree(contract.inputSchema()).path("additionalProperties").asBoolean());
       assertEquals("object", mapper.readTree(contract.outputSchema()).path("type").asText());
       assertEquals(0, contract.maxRetries());
-      assertEquals("LOCAL_IN_MEMORY_NO_IO", contract.timeoutPolicy());
+      assertEquals(
+          contract.name().equals("reserve_inventory") ? "SQLITE_TRANSACTION" : "SQLITE_LOCAL_READ",
+          contract.timeoutPolicy());
       assertNotNull(contract.authorization());
       assertNotNull(contract.sideEffect());
     }
@@ -217,5 +262,30 @@ class CommerceToolRegistryTest {
     assertEquals("Mechanical Keyboard", result.path("data").path("name").asText());
     assertEquals(1, observed.size());
     assertThrows(UnsupportedOperationException.class, () -> tools.contracts().clear());
+  }
+
+  @Test
+  void reservationPolicyRejectsInvalidConfirmationInputs() {
+    var executor = new SafeToolExecutor(catalog, new ReservationPolicy());
+
+    assertEquals(
+        "INVALID_CONFIRMATION",
+        executor.confirmReservation("not valid!", "valid-key-123").errorCode());
+    assertEquals(
+        "INVALID_IDEMPOTENCY_KEY",
+        executor.confirmReservation("confirmation-123", "short").errorCode());
+  }
+
+  @Test
+  void registryUsesExplicitSafeExecutorForProtectedProposal() {
+    var executor = new SafeToolExecutor(catalog, new ReservationPolicy());
+    var protectedTools = new CommerceToolRegistry(catalog, executor);
+
+    var result =
+        protectedTools.execute("reserve_inventory", "{\"sku\":\"SKU-1001\",\"quantity\":2}", true);
+
+    assertNull(result.errorCode());
+    assertEquals(20, catalog.inventory("SKU-1001").available());
+    assertTrue(result.data().toString().contains("confirmationId"));
   }
 }

@@ -14,7 +14,7 @@ public final class ReactAgentFactory {
         .systemPrompt(
             "You are a synthetic commerce assistant. Use registered tools for all commerce facts. "
                 + "Never invent tools, tracking, records or execution results. Reservations are proposals only; "
-                + "no operation changes stock. If a tool reports an error, acknowledge it. "
+                + "stock changes only after a separate backend confirmation. If a tool reports an error, acknowledge it. "
                 + "Do not repeat failed operations. For unsupported requests, say unsupported.")
         .parallelToolExecution(false)
         .model(model)

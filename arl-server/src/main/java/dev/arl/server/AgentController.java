@@ -2,9 +2,9 @@ package dev.arl.server;
 
 import dev.arl.agent.AgentExecutionService;
 import dev.arl.agent.AgentResponse;
-import dev.arl.domain.CommerceCatalog;
 import dev.arl.llm.LlmProviderRegistry;
 import dev.arl.observability.TraceStore;
+import dev.arl.tools.SafeToolExecutor;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -26,17 +26,17 @@ public final class AgentController {
 
   private final AgentExecutionService agent;
   private final LlmProviderRegistry providers;
-  private final CommerceCatalog catalog;
+  private final SafeToolExecutor safeToolExecutor;
   private final TraceStore traces;
 
   public AgentController(
       AgentExecutionService agent,
       LlmProviderRegistry providers,
-      CommerceCatalog catalog,
+      SafeToolExecutor safeToolExecutor,
       TraceStore traces) {
     this.agent = agent;
     this.providers = providers;
-    this.catalog = catalog;
+    this.safeToolExecutor = safeToolExecutor;
     this.traces = traces;
   }
 
@@ -47,9 +47,10 @@ public final class AgentController {
   }
 
   @PostMapping("/agent/confirm")
-  public ResponseEntity<CommerceCatalog.ReservationCommit> confirm(
+  public ResponseEntity<dev.arl.domain.CommerceCatalog.ReservationCommit> confirm(
       @Valid @RequestBody ConfirmRequest request) {
-    var result = catalog.confirmReservation(request.confirmationId(), request.idempotencyKey());
+    var result =
+        safeToolExecutor.confirmReservation(request.confirmationId(), request.idempotencyKey());
     return ResponseEntity.status(status(result.errorCode())).body(result);
   }
 

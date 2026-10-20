@@ -117,12 +117,35 @@ def check_boundaries(root):
             raise ValueError(f"Core composition-boundary violation: {source.name}")
 
 
+def check_compose_contract(root):
+    compose = (root / "compose.yaml").read_text()
+    backend_dockerfile = (root / "Dockerfile").read_text()
+    frontend_dockerfile = (root / "frontend/Dockerfile").read_text()
+    required = (
+        "ARL_SERVER_ADDRESS: 0.0.0.0",
+        "ARL_DB_PATH: /data/arl.db",
+        "condition: service_healthy",
+        "arl-data:/data",
+        "${ARL_DEMO_PORT:-8088}:80",
+    )
+    if any(item not in compose for item in required):
+        raise ValueError(
+            "Compose is missing persistence, health gating or published UI"
+        )
+    if (
+        "HEALTHCHECK" not in backend_dockerfile
+        or "HEALTHCHECK" not in frontend_dockerfile
+    ):
+        raise ValueError("Both demo containers must define health checks")
+
+
 def main():
     os.chdir(ROOT)
     destination = ROOT / "target/quality/requirements-report.json"
     destination.unlink(missing_ok=True)
     validate_manifest(json.loads((ROOT / "config/requirements.json").read_text()))
     check_boundaries(ROOT)
+    check_compose_contract(ROOT)
     subprocess.run(
         [
             sys.executable,
@@ -159,10 +182,17 @@ def main():
     subprocess.run(
         ["npm", "--prefix", "frontend", "run", "verify"], env=env, check=True
     )
+    subprocess.run(
+        ["npm", "--prefix", "frontend", "audit", "--audit-level=high"],
+        env=env,
+        check=True,
+    )
     if fingerprint(ROOT) != before:
         raise ValueError("Source changed during verification; rerun the gate")
     results = collect_results(ROOT, started)
     results["frontend:npm-run-verify"] = ["passed"]
+    results["frontend:npm-audit"] = ["passed"]
+    results["scripts.verify_compose_contract"] = ["passed"]
     evidence = verify_requirements(
         json.loads((ROOT / "config/requirements.json").read_text()), results
     )
