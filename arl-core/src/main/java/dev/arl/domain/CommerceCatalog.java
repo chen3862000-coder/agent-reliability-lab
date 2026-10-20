@@ -5,6 +5,7 @@ import java.sql.*;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /** SQLite-backed synthetic commerce state and M2 confirmation/idempotency boundary. */
 public final class CommerceCatalog implements AutoCloseable {
@@ -28,6 +29,8 @@ public final class CommerceCatalog implements AutoCloseable {
       Integer remaining) {}
 
   private static final int CONFIRMATION_TTL_SECONDS = 300;
+  private static final int READ_ATTEMPTS = 3;
+  private static final long READ_DEADLINE_MILLIS = 2000;
   private final Connection connection;
 
   public CommerceCatalog() {
@@ -42,6 +45,9 @@ public final class CommerceCatalog implements AutoCloseable {
     try {
       connection = DriverManager.getConnection(url);
       connection.setAutoCommit(true);
+      try (var statement = connection.createStatement()) {
+        statement.execute("pragma busy_timeout=100");
+      }
       initialize();
     } catch (SQLException failure) {
       throw new IllegalStateException("Cannot initialize commerce catalog", failure);
@@ -84,9 +90,15 @@ public final class CommerceCatalog implements AutoCloseable {
       ReservationCommit result = confirmInTransaction(confirmationId, idempotencyKey);
       connection.commit();
       return result;
+    } catch (ConditionalFailure failure) {
+      rollback();
+      return failure.result();
     } catch (SQLException failure) {
       rollback();
       throw new IllegalStateException("Cannot confirm reservation", failure);
+    } catch (IllegalStateException failure) {
+      rollback();
+      throw failure;
     } finally {
       autoCommit();
     }
@@ -94,6 +106,7 @@ public final class CommerceCatalog implements AutoCloseable {
 
   private ReservationCommit confirmInTransaction(String confirmationId, String idempotencyKey)
       throws SQLException {
+    acquireWriteLock(confirmationId);
     var confirmation = confirmation(confirmationId);
     var previous = idempotency(idempotencyKey);
     if (previous != null) return previousFor(previous, confirmationId, idempotencyKey);
@@ -119,18 +132,38 @@ public final class CommerceCatalog implements AutoCloseable {
 
   private ReservationCommit consume(Confirmation confirmation, String idempotencyKey)
       throws SQLException {
+    long now = Instant.now().getEpochSecond();
+    int confirmationRows =
+        update(
+            "update confirmations set consumed_at_epoch=? where confirmation_id=? and consumed_at_epoch is null and expires_at_epoch>=?",
+            now,
+            confirmation.confirmationId(),
+            now);
+    if (confirmationRows != 1) {
+      throw new ConditionalFailure(
+          failure(
+              confirmationError(confirmation.confirmationId()),
+              confirmation.confirmationId(),
+              idempotencyKey));
+    }
+    int stockRows =
+        update(
+            "update inventory set available=available-? where sku=? and available>=?",
+            confirmation.quantity(),
+            confirmation.sku(),
+            confirmation.quantity());
+    if (stockRows != 1) {
+      throw new ConditionalFailure(
+          failure("INSUFFICIENT_INVENTORY", confirmation.confirmationId(), idempotencyKey));
+    }
     Inventory stock = selectInventory(confirmation.sku());
-    int remaining = stock.available() - confirmation.quantity();
-    execute(
-        "update inventory set available=? where sku=? and available>=?",
-        remaining,
-        confirmation.sku(),
-        confirmation.quantity());
-    execute(
-        "update confirmations set consumed_at_epoch=? where confirmation_id=?",
-        Instant.now().getEpochSecond(),
-        confirmation.confirmationId());
-    return successShell(confirmation, idempotencyKey, remaining);
+    return successShell(confirmation, idempotencyKey, stock.available());
+  }
+
+  private void acquireWriteLock(String confirmationId) throws SQLException {
+    update(
+        "update confirmations set confirmation_id=confirmation_id where confirmation_id=?",
+        confirmationId);
   }
 
   private ReservationCommit previousFor(
@@ -183,44 +216,85 @@ public final class CommerceCatalog implements AutoCloseable {
   }
 
   private Product selectProduct(String sku) {
-    try (var statement =
-        connection.prepareStatement(
-            "select sku, name, price_cents, currency from products where sku=?")) {
-      statement.setString(1, sku);
-      try (var rows = statement.executeQuery()) {
-        return rows.next()
-            ? new Product(rows.getString(1), rows.getString(2), rows.getInt(3), rows.getString(4))
-            : null;
-      }
-    } catch (SQLException failure) {
-      throw new IllegalStateException("Cannot read product", failure);
-    }
+    return readWithRetry(
+        "product",
+        () -> {
+          try (var statement =
+              connection.prepareStatement(
+                  "select sku, name, price_cents, currency from products where sku=?")) {
+            statement.setString(1, sku);
+            try (var rows = statement.executeQuery()) {
+              return rows.next()
+                  ? new Product(
+                      rows.getString(1), rows.getString(2), rows.getInt(3), rows.getString(4))
+                  : null;
+            }
+          }
+        });
   }
 
   private Inventory selectInventory(String sku) {
-    try (var statement =
-        connection.prepareStatement("select sku, available from inventory where sku=?")) {
-      statement.setString(1, sku);
-      try (var rows = statement.executeQuery()) {
-        return rows.next() ? new Inventory(rows.getString(1), rows.getInt(2)) : null;
-      }
-    } catch (SQLException failure) {
-      throw new IllegalStateException("Cannot read inventory", failure);
-    }
+    return readWithRetry(
+        "inventory",
+        () -> {
+          try (var statement =
+              connection.prepareStatement("select sku, available from inventory where sku=?")) {
+            statement.setString(1, sku);
+            try (var rows = statement.executeQuery()) {
+              return rows.next() ? new Inventory(rows.getString(1), rows.getInt(2)) : null;
+            }
+          }
+        });
   }
 
   private Order selectOrder(String orderId) {
-    try (var statement =
-        connection.prepareStatement(
-            "select order_id, sku, quantity, status from orders where order_id=?")) {
-      statement.setString(1, orderId);
-      try (var rows = statement.executeQuery()) {
-        return rows.next()
-            ? new Order(rows.getString(1), rows.getString(2), rows.getInt(3), rows.getString(4))
-            : null;
+    return readWithRetry(
+        "order",
+        () -> {
+          try (var statement =
+              connection.prepareStatement(
+                  "select order_id, sku, quantity, status from orders where order_id=?")) {
+            statement.setString(1, orderId);
+            try (var rows = statement.executeQuery()) {
+              return rows.next()
+                  ? new Order(
+                      rows.getString(1), rows.getString(2), rows.getInt(3), rows.getString(4))
+                  : null;
+            }
+          }
+        });
+  }
+
+  private <T> T readWithRetry(String operation, SqlRead<T> read) {
+    long deadline = System.nanoTime() + READ_DEADLINE_MILLIS * 1_000_000;
+    SQLException last = null;
+    for (int attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
+      try {
+        return read.run();
+      } catch (SQLException failure) {
+        last = failure;
+        if (!isBusy(failure) || attempt + 1 == READ_ATTEMPTS || System.nanoTime() >= deadline)
+          break;
+        pauseBeforeReadRetry(attempt, deadline);
       }
-    } catch (SQLException failure) {
-      throw new IllegalStateException("Cannot read order", failure);
+    }
+    throw new IllegalStateException("Cannot read " + operation, last);
+  }
+
+  private static boolean isBusy(SQLException failure) {
+    int code = failure.getErrorCode();
+    return code == 5 || code == 6 || "SQLITE_BUSY".equals(failure.getSQLState());
+  }
+
+  private static void pauseBeforeReadRetry(int attempt, long deadline) {
+    long backoff = 20L << attempt;
+    long jitter = ThreadLocalRandom.current().nextLong(1, 16);
+    long remainingMillis = Math.max(1, (deadline - System.nanoTime()) / 1_000_000);
+    try {
+      Thread.sleep(Math.min(backoff + jitter, remainingMillis));
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("SQLite read retry interrupted", interrupted);
     }
   }
 
@@ -298,9 +372,13 @@ public final class CommerceCatalog implements AutoCloseable {
   }
 
   private void execute(String sql, Object... values) {
+    update(sql, values);
+  }
+
+  private int update(String sql, Object... values) {
     try (var statement = connection.prepareStatement(sql)) {
       for (int i = 0; i < values.length; i++) statement.setObject(i + 1, values[i]);
-      statement.executeUpdate();
+      return statement.executeUpdate();
     } catch (SQLException failure) {
       throw new IllegalStateException("Cannot execute catalog statement", failure);
     }
@@ -345,6 +423,36 @@ public final class CommerceCatalog implements AutoCloseable {
     public ReservationFailure(String code) {
       super(code);
     }
+  }
+
+  private String confirmationError(String confirmationId) {
+    try {
+      Confirmation confirmation = confirmation(confirmationId);
+      return confirmation == null
+          ? "CONFIRMATION_NOT_FOUND"
+          : confirmation.expiresAtEpoch() < Instant.now().getEpochSecond()
+              ? "CONFIRMATION_EXPIRED"
+              : "CONFIRMATION_ALREADY_USED";
+    } catch (SQLException failure) {
+      throw new IllegalStateException("Cannot inspect confirmation", failure);
+    }
+  }
+
+  private static final class ConditionalFailure extends RuntimeException {
+    private final ReservationCommit result;
+
+    private ConditionalFailure(ReservationCommit result) {
+      this.result = result;
+    }
+
+    ReservationCommit result() {
+      return result;
+    }
+  }
+
+  @FunctionalInterface
+  private interface SqlRead<T> {
+    T run() throws SQLException;
   }
 
   private record Confirmation(

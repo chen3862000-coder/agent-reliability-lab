@@ -17,8 +17,11 @@ Implemented behavior:
 - DeepSeek and Grok provider descriptors, explicit unconfigured-provider errors and no fallback.
 - Per-request agent execution with bounded model calls and bounded accepted tool proposals.
 - SQLite-backed synthetic commerce state, optional file-backed persistence, and in-memory trace retention for the latest 256 completed traces.
-- `arl-evaluation` offline scenario runner with isolated catalog state, scripted models, safety metrics and JSON reports.
+- `arl-evaluation` offline runner with 59 distinct scenarios, isolated catalog state, scripted models, explicit tool accuracy/safety/idempotency/recovery/trace metrics and JSON reports.
 - `frontend` Vite React UI for providers, chat, protected reservation confirmation and trace viewing.
+- Docker Compose local demo stack with health checks and persistent SQLite volume.
+- `SafeToolExecutor` and `ReservationPolicy` backend boundary for reservation proposals and confirmation requests.
+- Bounded retry with deadline/jitter for classified SQLite BUSY reads; model calls and write side effects remain non-retried.
 
 ## Current Fixtures
 
@@ -33,15 +36,18 @@ Products and orders are deterministic. Inventory is mutable only through confirm
 The following are not implemented and should not be claimed without a later approved
 milestone:
 
-- Ambiguous write failure reconciliation beyond recorded idempotent results.
-- Live/provider-quality evaluation suite; current M3 evaluation is intentionally offline and deterministic.
+- Live/provider-quality evaluation suite; current evaluation is intentionally offline and deterministic.
 - Live quality scoring.
-- Docker packaging or production deployment flow.
+- Production deployment, durable trace/audit storage, and identity-bound authorization.
 
 ## Known Limitations
 
 - This is a loopback demo with synthetic data and no authentication.
 - The frontend is an API client only; backend remains the safety and authorization boundary.
+- Reservation confirmation is a demo safety control only: it is not bound to user identity/session and is not a production authorization or complete HITL policy system.
+- Confirmation is not bound to a user/session and is not production authorization or a full human-in-the-loop policy system.
+- SQLite concurrency is tested across separate connections to one local database file, not across hosts or production multi-instance infrastructure.
+- SQLite read retries are bounded and apply only to classified BUSY errors; writes are not blindly retried.
 - Provider startup status reports configuration only; it does not prove account entitlement or model availability.
 - Offline tests use scripted models and HTTP stubs; they do not prove live model quality.
 - Offline evaluation proves deterministic safety and flow behavior only; it does not benchmark live model accuracy.

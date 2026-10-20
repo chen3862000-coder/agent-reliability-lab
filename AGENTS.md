@@ -1,9 +1,9 @@
 # Agent Instructions
 
 ## Current Scope
-- M4 is approved and implemented: M2 protected reservation, M3 deterministic offline evaluation and a React demo frontend.
-- Do not add Docker, live evaluation claims, or broader commerce writes without approval for later milestones.
-- See `docs/m1-implementation.md` for current behavior and limitations.
+- M4 is approved and implemented: protected reservations, deterministic offline evaluation, React demo and local Docker Compose stack.
+- Do not claim live evaluation or identity-bound authorization; broader commerce writes require approval.
+- `docs/m1-implementation.md` is a historical snapshot; use `docs/project-status.md` for current behavior.
 
 ## Toolchain
 - Use OpenJDK 27; the root `pom.xml` sets `java.version` to `27`.
@@ -14,9 +14,10 @@
 ## Commands
 - Canonical verification: `make verify` (also `make test`): Maven checks plus requirement evidence.
 - Offline evaluation report: `make evaluate`; writes `target/evaluation/report.json` and does not call paid providers.
+- Container demo: `make demo`; stop with `make demo-down`.
 - Frontend verification: `make frontend-verify`; dev server: `make frontend-dev` after `make start`.
 - Java-only verification: `./mvnw clean verify`; formatting: `make format`.
-- Run the M1 app: `make start` or `./scripts/start-arl-server.sh`; it builds and starts the HTTP server on loopback port 8080. `make run` is an alias.
+- Run the app: `make start` or `./scripts/start-arl-server.sh`; it builds and starts the HTTP server on loopback port 8080. `make run` is an alias.
 - Focus one module: `./mvnw -pl arl-core test` or `./mvnw -pl arl-server test`.
 - Focus one test class: `./mvnw -pl arl-core -Dtest=ProviderTransportTest test`.
 - Paid live smoke tests are opt-in only: export vars from `.env.example`, then run `make live-test`.
@@ -25,6 +26,7 @@
 - `arl-core` owns provider registry/configuration and `ReactAgentFactory`; it should stay independent of Spring Boot composition.
 - `arl-server` is the Spring Boot composition root and depends on `arl-core`.
 - `arl-evaluation` is the offline evaluation module; `frontend` is API-client-only and must not own safety decisions.
+- `SafeToolExecutor` and `ReservationPolicy` own the trusted reservation/confirmation boundary; no write retries.
 - Create new modules only when they contain executable functionality.
 - Use Alibaba `ReactAgent`; do not implement a custom ReAct loop.
 
@@ -54,6 +56,6 @@
 - Do not lower coverage floors, suppress checks, or reclassify automated requirements merely to pass.
 - Do not weaken Checkstyle or PMD CPD smell checks to pass; refactor large, complex or duplicated code instead.
 - Keep manual review, live provider verification and deferred milestones separate from automated passes.
-- The engineering harness is not the M2 runtime reliability harness; do not imply M2 is implemented.
+- Keep engineering verification, offline evaluation, manual review and live-provider evidence distinct.
 
 - Coverage gates per Java module: CLASS and METHOD >=71% (strictly above 70%); LINE >=85%; BRANCH >=75%.

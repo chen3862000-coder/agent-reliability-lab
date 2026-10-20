@@ -1,7 +1,7 @@
 # Engineering quality harness
 
-This harness checks the repository as software. It is separate from the future M2
-runtime reliability harness and the M3 agent evaluation system.
+This harness checks the repository as software. It is separate from M2 runtime reliability
+controls and the M3 agent evaluation system.
 
 ## One entry point
 
@@ -32,6 +32,7 @@ provider credentials from the Maven environment and explicitly disables live tes
 | Coverage | JaCoCo 0.8.15: each Java module must reach 71% classes, 71% methods, 85% lines and 75% branches; HTML/XML reports |
 | Architecture | Core cannot directly depend on another ARL module or production Boot composition; source imports checked |
 | Requirements | Every automated requirement must have mapped, passing test evidence; non-live skips and unexpected live execution fail |
+| Frontend supply chain | `npm audit --audit-level=high` against the pinned lockfile; CI installs with `npm ci` |
 | Evidence freshness | Clean build, report timestamps and unchanged source fingerprint; no reuse of historic evidence |
 
 Class and method gates use an inclusive 71% minimum to enforce the requirement of

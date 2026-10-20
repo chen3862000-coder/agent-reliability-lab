@@ -118,9 +118,9 @@ The current trusted boundary is:
 
 `ReactAgent -> registered ToolCallback -> CommerceToolRegistry validation -> confirmation record -> POST /agent/confirm -> SQLite transaction -> idempotent ReservationCommit`
 
-### Remaining Protected Write Hardening
+### Protected Write Boundary
 
-Future write execution should keep this stricter boundary:
+The implemented M4 path uses this boundary:
 
 `ReactAgent -> registered ToolCallback -> SafeToolExecutor -> strict argument validation -> business constraints -> policy -> trusted authorization -> transaction -> domain result`
 
@@ -129,8 +129,9 @@ Key rules for protected writes:
 - The callback is the only protected tool entry point.
 - Tool interceptors may trace, but interceptors alone are not the authorization boundary.
 - The model never assigns trusted idempotency keys or grants authorization.
-- Confirmation records bind operation, canonical arguments, execution context and expiry.
-- SQLite atomically consumes confirmation, changes stock and records the idempotent result for the implemented reservation path; file-backed databases preserve those records across restarts.
+- Confirmation records bind operation, canonical arguments and expiry. They are not bound to
+  an authenticated user/session in this local demo.
+- SQLite atomically consumes confirmation, changes stock and records the idempotent result; conditional affected-row checks enforce the write invariant. File-backed databases preserve those records across restarts.
 - A unique key plus operation fingerprint prevents duplicate effects and key reuse with changed arguments.
 - Ambiguous write failures are reconciled against durable records, never blindly retried.
 
@@ -169,6 +170,12 @@ Trace events include:
 
 Responses include `status`, `message`, `errorCode`, `traceId`, `provider`, `model`, `toolCalls` and `results`. Provider exceptions and routing errors are sanitized; raw provider details and credentials are not returned.
 
+These are **application-generated structured responses**, not model-enforced structured
+output. ARL does not currently configure Alibaba `ReactAgent.outputSchema()` or validate a
+final model response against a response schema. For business facts, the implementation
+deliberately builds response text from validated tool results and ignores free-form model
+narrative.
+
 ## Evaluation Architecture
 
 M3/M4 verification separates deterministic offline evaluation from live provider claims:
@@ -185,10 +192,12 @@ M3/M4 verification separates deterministic offline evaluation from live provider
 - **Prefer deterministic tool results over model narrative.** The model can select tools, but observed tool output drives business responses.
 - **Fail explicitly rather than falling back.** Unknown provider, unconfigured provider, unsupported mode and invalid requests have explicit error codes.
 - **Bound execution.** M4 caps model calls, accepted tool proposals, provider timeout, output tokens and trace retention.
-- **Confirm writes outside the model loop.** The model may propose a reservation, but stock changes only through `POST /agent/confirm` with a client idempotency key.
+- **Retry only safe local reads.** SQLite BUSY failures on read-only catalog queries receive a small bounded retry budget and deadline. Provider model calls and write transactions keep SDK retries disabled; writes are reconciled only by replaying the same idempotency key.
+- **Confirm writes outside the model loop.** The model may propose a reservation, but stock changes only through `POST /agent/confirm` with a client idempotency key. This is confirmation-gated execution, not production-grade identity-bound authorization or a full HITL policy system.
 - **Separate offline verification from live provider claims.** Stubbed tests prove wiring and regression behavior; live accuracy/entitlement remain opt-in evidence.
-- **Keep evaluation deterministic by default.** M3 scenarios use scripted models and isolated SQLite state so reports are reproducible and do not depend on paid provider behavior.
+- **Keep evaluation deterministic by default.** The 59 M3 scenarios use scripted models and isolated SQLite state; metrics compare observed tool selection and explicit safety/idempotency/recovery/trace invariants to scenario expectations.
 - **Keep the frontend thin.** M4 improves demo usability, but all validation, confirmation, idempotency and mutation decisions stay in backend/core code.
+- **Distinguish response structure from model output structure.** ARL returns typed API/tool result objects, but does not currently enforce a model `outputSchema`; business response text is derived from tool results rather than model narrative.
 
 ## Current Phase vs Upcoming Changes
 

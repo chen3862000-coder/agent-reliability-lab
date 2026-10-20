@@ -7,13 +7,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import dev.arl.domain.CommerceCatalog;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
-/** Central tool contracts. M2 writes require protected confirmation before stock changes. */
+/** Central tool contracts for validated reads and confirmation-gated reservation proposals. */
 public final class CommerceToolRegistry {
   public record Contract(
       String name,
@@ -36,10 +35,16 @@ public final class CommerceToolRegistry {
       "properties":{"tool":{"type":"string"},"message":{"type":"string"},"data":{},"errorCode":{"type":["string","null"]}}}
       """;
   private final CommerceCatalog catalog;
+  private final SafeToolExecutor safeExecutor;
   private final List<Contract> contracts;
 
   public CommerceToolRegistry(CommerceCatalog catalog) {
+    this(catalog, new SafeToolExecutor(catalog, new ReservationPolicy()));
+  }
+
+  public CommerceToolRegistry(CommerceCatalog catalog, SafeToolExecutor safeExecutor) {
     this.catalog = catalog;
+    this.safeExecutor = safeExecutor;
     contracts =
         List.of(
             contract("get_product", "Get a synthetic product by SKU", "sku", false),
@@ -51,7 +56,7 @@ public final class CommerceToolRegistry {
                 false),
             contract(
                 "reserve_inventory",
-                "Validate a reservation proposal only. Execution is disabled in M1; stock never changes",
+                "Propose a reservation. Protected proposals require separate confirmation before stock changes",
                 "sku",
                 true));
   }
@@ -75,9 +80,9 @@ public final class CommerceToolRegistry {
         description,
         schema,
         OUTPUT,
-        proposal ? "PROPOSAL_ONLY" : "READ_ONLY",
-        proposal ? "WRITE_DISABLED_UNTIL_M2" : "SYNTHETIC_READ",
-        "LOCAL_IN_MEMORY_NO_IO",
+        proposal ? "CONFIRMATION_GATED_WRITE" : "READ_ONLY",
+        proposal ? "PROTECTED_CONFIRMATION_REQUIRED" : "SYNTHETIC_READ",
+        proposal ? "SQLITE_TRANSACTION" : "SQLITE_LOCAL_READ",
         0);
   }
 
@@ -139,43 +144,7 @@ public final class CommerceToolRegistry {
   }
 
   private ToolResult reserve(String name, ParsedArguments parsed, boolean protectedMode) {
-    ToolResult error = null;
-    var stock = catalog.inventory(parsed.value());
-    if (parsed.quantity() < 1 || parsed.quantity() > 1000) {
-      error = ToolResult.error(name, "BUSINESS_VALIDATION_FAILED");
-    } else if (stock == null) {
-      error = ToolResult.error(name, "NOT_FOUND");
-    } else if (parsed.quantity() > stock.available()) {
-      error = ToolResult.error(name, "INSUFFICIENT_INVENTORY");
-    }
-    if (error != null) return error;
-    if (protectedMode) return reservationProposal(name, parsed);
-    return new ToolResult(
-        name,
-        "Reservation proposal only; execution and confirmation are unavailable until M2.",
-        Map.of("sku", parsed.value(), "quantity", parsed.quantity()),
-        "RESERVATION_NOT_ENABLED");
-  }
-
-  private ToolResult reservationProposal(String name, ParsedArguments parsed) {
-    try {
-      var proposal = catalog.proposeReservation(parsed.value(), parsed.quantity());
-      return new ToolResult(
-          name,
-          "Reservation requires confirmation before stock changes.",
-          Map.of(
-              "confirmationId",
-              proposal.confirmationId(),
-              "sku",
-              proposal.sku(),
-              "quantity",
-              proposal.quantity(),
-              "expiresAt",
-              proposal.expiresAt().toString()),
-          null);
-    } catch (CommerceCatalog.ReservationFailure failure) {
-      return ToolResult.error(name, failure.getMessage());
-    }
+    return safeExecutor.proposeReservation(parsed.value(), parsed.quantity(), protectedMode);
   }
 
   private ToolResult read(String name, String value) {

@@ -1,5 +1,11 @@
 # M1 implementation and review
 
+> Historical M1 snapshot. This document records M1 behavior at that milestone and is not
+> a description of the current application. The current state is M4; see
+> [project status](project-status.md), [requirements](requirements.md), and
+> [architecture](architecture.md) for current behavior. Protected reservations and
+> SQLite idempotency were added in M2; offline evaluation in M3; the frontend in M4.
+
 M1 is implemented as a local, read-only synthetic commerce agent. Alibaba ReactAgent
 owns the reasoning loop. An immutable provider registry supplies the selected model;
 each request gets its own agent, model-call budget, results and trace.
@@ -42,10 +48,11 @@ separately; these are not an end-to-end wall-clock deadline. Tools perform local
 reads without network I/O. The latest 256 completed traces are retained, with immutable
 snapshots and eviction; prompts, raw arguments and provider errors are not stored.
 
-This is a loopback demo with synthetic data, no authentication or durable trace store.
-Do not expose it as a production commerce API. M2 authorization, exact-argument
-confirmation, transactional idempotency and recovery are not implemented. `PROTECTED`
-is rejected explicitly. Existing Java 27/framework milestone caveats still apply.
+At M1 this was a loopback demo with synthetic data, no authentication or durable trace
+store. The current M4 demo remains unauthenticated and is not a production commerce API.
+Its protected reservation is confirmation-gated, but confirmation is not bound to an
+authenticated user/session and must not be described as production authorization or a
+complete HITL policy system. Existing Java 27/framework milestone caveats still apply.
 
 ## Review findings and regression evidence
 
@@ -71,6 +78,5 @@ coverage gates. Requirements are mapped in `config/requirements.json`; generated
 is in `target/quality/requirements-report.json`. Both class and method coverage must be
 at least 71% in each module, with line 85% and branch 75% floors unchanged.
 
-Opt-in live compatibility and M1 inventory tests exist for both providers. They have
-not been executed with credentials in this implementation session; live accuracy and
-account/model entitlement remain NOT_RUN. M2, M3 and M4 remain deferred.
+At M1, opt-in live compatibility tests existed for both providers. Current live-provider
+verification remains opt-in and must be reported as NOT_RUN unless run with credentials.

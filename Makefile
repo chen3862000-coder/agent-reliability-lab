@@ -1,4 +1,4 @@
-.PHONY: verify test format start run evaluate frontend-install frontend-dev frontend-verify live-test harness-test
+.PHONY: verify test format start run evaluate demo demo-down frontend-install frontend-dev frontend-verify live-test harness-test
 
 verify:
 	python3 scripts/verify.py
@@ -28,6 +28,13 @@ frontend-dev:
 
 frontend-verify:
 	npm --prefix frontend run verify
+	npm --prefix frontend audit --audit-level=high
+
+demo:
+	docker compose up --build
+
+demo-down:
+	docker compose down
 
 live-test:
 	./mvnw -pl arl-core -Darl.live=true -Dtest=LiveProviderTest test

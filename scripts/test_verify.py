@@ -9,6 +9,7 @@ from verify import (
     validate_manifest,
     verify_requirements,
     check_boundaries,
+    check_compose_contract,
 )
 
 
@@ -114,6 +115,16 @@ class RequirementGateTest(unittest.TestCase):
             (root / "frontend/dist/app.js").write_text("changed")
             (root / "frontend/tsconfig.tsbuildinfo").write_text("changed")
             self.assertEqual(first, fingerprint(root))
+
+    def test_compose_contract_rejects_missing_persistence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "frontend").mkdir()
+            (root / "compose.yaml").write_text("services: {}")
+            (root / "Dockerfile").write_text("FROM image")
+            (root / "frontend/Dockerfile").write_text("FROM image")
+            with self.assertRaises(ValueError):
+                check_compose_contract(root)
 
 
 if __name__ == "__main__":

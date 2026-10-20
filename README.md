@@ -20,13 +20,14 @@ reasoning loop and Spring AI OpenAI-compatible clients for DeepSeek and Grok.
 - Returns structured tool results instead of trusting model narrative as business truth.
 - Records bounded in-memory traces for model calls, tool proposals, tool execution and errors.
 - Selects `deepseek` or `grok` per request with explicit errors and no provider fallback.
-- Runs deterministic offline evaluation scenarios with JSON metrics.
+- Runs 55 deterministic offline evaluation scenarios with explicit JSON metrics.
 - Includes a React demo UI for chat, protected confirmations, provider status and traces.
 
 ## What It Is Not
 
-ARL is not a production commerce system. M4 has no authentication, durable trace store,
-Docker packaging or live evaluation dashboard. Those are later milestones.
+ARL is not a production commerce system. M4 has no authentication, durable trace/audit
+storage or identity-bound authorization. Docker Compose is local-demo packaging only;
+there is no production deployment profile or live evaluation dashboard.
 
 For current milestone status and limitations, see [project status](docs/project-status.md).
 
@@ -36,7 +37,7 @@ For current milestone status and limitations, see [project status](docs/project-
 - Spring Boot 4.0.8
 - Spring AI 2.0.0-M1 OpenAI-compatible chat adapter
 - Alibaba Agent Framework 2.0.0-M1.1 `ReactAgent`
-- JUnit, Spotless, Checkstyle and JaCoCo through the Maven reactor
+- JUnit, Spotless, Checkstyle, PMD CPD and JaCoCo through the Maven reactor
 - Offline evaluation module with scripted-model scenarios
 - Vite React TypeScript frontend
 - Python requirement-evidence gate in `scripts/verify.py`
@@ -109,6 +110,8 @@ This is the canonical local/CI gate. It runs Java checks and tests, coverage thr
 architecture checks and requirement-evidence validation. Use `make format` to apply Java
 formatting.
 
+The same gate runs `npm audit --audit-level=high` against the pinned frontend lockfile.
+
 Default tests use scripted models and loopback HTTP stubs, not paid provider APIs. Live
 provider smoke tests are opt-in with `make live-test` after exporting credentials.
 
@@ -118,7 +121,9 @@ Run offline evaluation separately when you want the scenario report:
 make evaluate
 ```
 
-The report is written to `target/evaluation/report.json`.
+The report is written to `target/evaluation/report.json`. The 59 distinct offline scenarios
+report tool-accuracy, safety-invariant, idempotency, recovery, protected-write and trace
+completeness metrics. They do not measure live-provider answer quality.
 
 Run the frontend after starting the backend:
 
@@ -128,6 +133,16 @@ make frontend-dev
 ```
 
 The Vite dev server proxies API calls to `http://127.0.0.1:8080`.
+
+For a one-command local container demo, with Docker Engine and Compose installed:
+
+```sh
+ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
+```
+
+Open `http://127.0.0.1:8088`. SQLite persists in a named volume. `make demo-down` stops
+the stack without deleting data. Provider keys are runtime environment values, never
+image build arguments.
 
 ## Demo Walkthrough
 
@@ -159,6 +174,19 @@ Common demo outcomes:
 - Idempotency replay: confirming the same token/key again returns the same result without another stock change.
 - Idempotency key reuse: reusing a key for a different confirmation returns `IDEMPOTENCY_KEY_REUSED`.
 - Restart behavior: leave `ARL_DB_PATH` blank to reset stock on restart; set it to a file path to preserve stock and idempotency records.
+
+## Container Demo
+
+With Docker Engine and Compose installed, run the complete backend/frontend demo:
+
+```sh
+ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
+```
+
+Open `http://127.0.0.1:8088`. The backend health check gates frontend startup, and SQLite is
+persisted in the `arl-data` named volume. Stop services with `make demo-down`; the volume is
+preserved. The demo has no authentication and is not for production deployment. Provider
+keys are runtime environment values, never Docker build arguments.
 
 ## Documentation
 

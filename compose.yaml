@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ARL_SERVER_ADDRESS: 0.0.0.0
+      ARL_PORT: 8080
+      ARL_DB_PATH: /data/arl.db
+      ARL_DEFAULT_PROVIDER: ${ARL_DEFAULT_PROVIDER:-deepseek}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      GROK_MODEL: ${GROK_MODEL:-grok-4.7}
+    volumes:
+      - arl-data:/data
+    expose:
+      - "8080"
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${ARL_DEMO_PORT:-8088}:80"
+
+volumes:
+  arl-data:

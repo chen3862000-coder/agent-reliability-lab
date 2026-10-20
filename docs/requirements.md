@@ -93,6 +93,8 @@ curl http://127.0.0.1:8080/agent/confirm -H 'Content-Type: application/json' \
 
 The idempotency key must be client-generated and stable for retries of the same
 confirmation. Reusing a key for a different confirmation returns `IDEMPOTENCY_KEY_REUSED`.
+This is a confirmation-gated local demo flow, not identity-bound authorization or a complete
+HITL policy system: confirmations are not associated with an authenticated user/session.
 
 ## Provider Behavior
 
@@ -102,6 +104,7 @@ confirmation. Reusing a key for a different confirmation returns `IDEMPOTENCY_KE
 - Missing credentials keep a provider unconfigured; clients are not constructed for absent keys.
 - Each agent request gets fresh execution state; checkpoint/thread IDs are not shared.
 - Output is capped at 1,024 tokens, model calls at four and SDK retries are disabled.
+- SQLite reads retry only classified BUSY failures, with at most three attempts, exponential delay plus jitter, and a 2-second retry deadline. Writes are not blindly retried; replay the same confirmation/idempotency key to recover the committed result or safely complete an uncommitted operation.
 
 ## Verification Notes
 
@@ -119,22 +122,38 @@ make live-test
 ```
 
 If a provider key is absent, that provider's live test is skipped and should be treated as
-`NOT_RUN`, not successful live verification.
+`NOT_RUN`, not successful live verification. DeepSeek and Grok live verification remains
+pending until run with real credentials and recorded evidence.
 
 ## Offline Evaluation
 
-`make evaluate` runs the M3 offline evaluation suite with scripted models and isolated
-SQLite catalog state per scenario. It writes `target/evaluation/report.json` with:
+`make evaluate` runs the offline suite with scripted models and isolated SQLite catalog
+state per scenario. It currently has 59 distinct scenarios and writes
+`target/evaluation/report.json` with:
 
 - total, passed and failed scenario counts
-- tool-accuracy pass count
-- safety violation count
+- tool accuracy: exact observed-vs-expected tool call count and denominator
+- safety violations: scenarios violating expected stock invariance or confirmed stock result
+- idempotency: protected writes passing same-key replay and different-confirmation key-reuse checks
+- recovery: protected writes returning the stored result on a replay
 - protected-write pass count
-- trace-completeness pass count
+- trace completeness: scenarios containing lifecycle and applicable model/tool outcome events
 - per-scenario status, error code, tool calls, stock delta and trace events
 
 The offline suite is deterministic and does not call paid providers. It is not evidence of
 live model accuracy or account entitlement.
+
+## Docker Demo
+
+With Docker Engine and Compose installed, start the full local stack with one command:
+
+```sh
+ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
+```
+
+Open `http://127.0.0.1:8088`. Provider keys are passed at runtime, not baked into images.
+Compose persists SQLite in the `arl-data` named volume. Stop with `make demo-down`; this
+preserves the volume. This unauthenticated demo is not a production deployment.
 
 ## Frontend
 

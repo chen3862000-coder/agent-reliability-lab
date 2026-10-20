@@ -6,7 +6,7 @@ spring:
       fail-on-unknown-properties: true
 
 server:
-  address: 127.0.0.1
+  address: ${ARL_SERVER_ADDRESS:127.0.0.1}
   port: ${ARL_PORT:8080}
   error:
     include-message: never

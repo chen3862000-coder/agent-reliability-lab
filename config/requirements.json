@@ -87,7 +87,7 @@
     },
     {
       "id": "M0-NO-RETRY",
-      "description": "Both provider transports make one attempt for 503",
+      "description": "Both provider transports disable hidden SDK retries for 503 responses",
       "status": "automated",
       "tests": [
         "dev.arl.llm.ProviderTransportTest#providerFailureDoesNotRetry"
@@ -124,6 +124,10 @@
       "description": "Strict validation, authorization, confirmation, idempotency and bounded recovery",
       "status": "automated",
       "tests": [
+        "dev.arl.tools.CommerceToolRegistryTest#reservationPolicyRejectsInvalidConfirmationInputs",
+        "dev.arl.tools.CommerceToolRegistryTest#registryUsesExplicitSafeExecutorForProtectedProposal",
+        "dev.arl.tools.CommerceToolRegistryTest#separateCatalogConnectionsSerializeSameConfirmation",
+        "dev.arl.domain.CommerceCatalogRecoveryTest#expiredConfirmationNeverChangesInventory",
         "dev.arl.tools.CommerceToolRegistryTest#protectedReservationRequiresConfirmationBeforeMutatingStock",
         "dev.arl.tools.CommerceToolRegistryTest#confirmationIsIdempotentAndRejectsKeyReuseForChangedOperation",
         "dev.arl.tools.CommerceToolRegistryTest#fileBackedCatalogPreservesStockAndIdempotencyAcrossRestart",
@@ -134,7 +138,7 @@
     },
     {
       "id": "M3-EVAL",
-      "description": "Deterministic offline evaluation with honest metrics and JSON report",
+      "description": "At least 50 deterministic offline scenarios with explicit accuracy, safety, recovery and trace metrics",
       "status": "automated",
       "tests": [
         "dev.arl.evaluation.EvaluationRunnerTest#offlineEvaluationProducesHonestMetricsAndReport",
@@ -146,7 +150,16 @@
       "description": "React dashboard consumes backend APIs without owning safety decisions",
       "status": "automated",
       "tests": [
-        "frontend:npm-run-verify"
+        "frontend:npm-run-verify",
+        "frontend:npm-audit"
+      ]
+    },
+    {
+      "id": "M4-CONTAINER-DEMO",
+      "description": "Docker Compose demo stack definition with persistent storage and backend health check",
+      "status": "automated",
+      "tests": [
+        "scripts.verify_compose_contract"
       ]
     },
     {
