@@ -23,7 +23,7 @@ record EvaluationScenario(
         tool == null || "TOOL_NOT_FOUND".equals(error) ? List.of() : List.of(tool);
     return new EvaluationScenario(
         id,
-        "tool-selection",
+        category(id),
         id,
         "BASELINE",
         tool,
@@ -95,5 +95,17 @@ record EvaluationScenario(
 
   private static int initialStock(String sku) {
     return "SKU-1002".equals(sku) ? 0 : 20;
+  }
+
+  private static String category(String id) {
+    String category = "validation";
+    if (id.startsWith("read-")) category = "read-contract";
+    else if (id.startsWith("missing-")) category = "missing-record";
+    else if (id.startsWith("malformed-args-")) category = "malformed-arguments";
+    else if (id.startsWith("unknown-tool-")) category = "unknown-tool-rejection";
+    else if (id.startsWith("baseline-reserve-")) category = "baseline-write-guard";
+    else if (id.startsWith("insufficient-inventory-")) category = "insufficient-inventory";
+    else if (id.startsWith("invalid-quantity-")) category = "invalid-quantity";
+    return category;
   }
 }

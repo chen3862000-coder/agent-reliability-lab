@@ -58,7 +58,7 @@ public final class AgentController {
     if (code == null) return 200;
     return switch (code) {
       case "UNKNOWN_PROVIDER", "INVALID_REQUEST", "MODE_NOT_AVAILABLE" -> 400;
-      case "PROVIDER_NOT_CONFIGURED" -> 503;
+      case "PROVIDER_NOT_CONFIGURED", "WRITE_BUSY_RETRY_SAME_KEY" -> 503;
       case "PROVIDER_UNAVAILABLE", "INVALID_MODEL_RESPONSE" -> 502;
       default -> 422;
     };

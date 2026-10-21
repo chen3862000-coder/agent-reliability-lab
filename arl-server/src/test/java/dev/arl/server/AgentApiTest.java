@@ -149,6 +149,7 @@ class AgentApiTest {
     assertEquals(500, unexpected.getStatusCode().value());
     assertEquals("INTERNAL_ERROR", unexpected.getBody().errorCode());
     assertEquals(502, AgentController.status("INVALID_MODEL_RESPONSE"));
+    assertEquals(503, AgentController.status("WRITE_BUSY_RETRY_SAME_KEY"));
   }
 
   @TestConfiguration

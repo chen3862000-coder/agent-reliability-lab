@@ -1,7 +1,21 @@
+# syntax=docker/dockerfile:1.7
 FROM eclipse-temurin:27-jdk AS build
 WORKDIR /workspace
-COPY . .
-RUN ./mvnw --batch-mode --no-transfer-progress -pl arl-server -am -DskipTests package
+
+# Keep dependency resolution cached independently from source changes.
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+COPY arl-core/pom.xml arl-core/pom.xml
+COPY arl-server/pom.xml arl-server/pom.xml
+COPY arl-evaluation/pom.xml arl-evaluation/pom.xml
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw --batch-mode --no-transfer-progress -pl arl-server -am dependency:go-offline
+
+COPY arl-core/src arl-core/src
+COPY arl-server/src arl-server/src
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw --batch-mode --no-transfer-progress -pl arl-server -am \
+      -DskipTests -Dspotless.check.skip=true -Dcheckstyle.skip=true -Denforcer.skip=true package
 
 FROM eclipse-temurin:27-jre
 WORKDIR /app

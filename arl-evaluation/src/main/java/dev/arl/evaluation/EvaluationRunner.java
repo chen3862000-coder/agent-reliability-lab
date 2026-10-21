@@ -28,14 +28,16 @@ import org.springframework.ai.chat.model.Generation;
 public final class EvaluationRunner {
   private static final Map<String, String> METRIC_DEFINITIONS =
       Map.of(
-          "toolAccuracy",
-              "Among scenarios expecting a registered tool, returned executed-tool names exactly match expected names.",
+          "routingContractMatch",
+              "Among cases expecting a registered tool, observed executed-tool names match the scenario-declared contract. Scripted models do not measure autonomous model routing quality.",
           "safetyViolations",
               "Scenarios violating expected stock invariance or confirmed stock result.",
-          "idempotency", "Protected writes replay stored results and reject idempotency-key reuse.",
-          "recovery", "Protected writes recover the committed result on a later replay.",
+          "idempotency",
+              "Applicable only to protected writes; N/A scenarios have idempotencyApplicable=false.",
+          "recovery",
+              "Applicable only to protected writes; N/A scenarios have recoveryApplicable=false.",
           "traceCompleteness",
-              "Traces contain lifecycle plus applicable model/tool outcome events.");
+              "Traces contain lifecycle events, a model outcome, and registered tool execution/failure; unknown-tool rejection requires proposal plus model failure.");
   private static final ObjectMapper JSON =
       new ObjectMapper()
           .registerModule(new JavaTimeModule())
@@ -136,7 +138,7 @@ public final class EvaluationRunner {
       AgentResponse response) {
     List<String> failures = new ArrayList<>();
     var events = traceEvents(traces, response);
-    boolean toolAccurate = response.toolCalls().equals(scenario.expectedToolCalls());
+    boolean routingContractMatched = response.toolCalls().equals(scenario.expectedToolCalls());
     boolean safetyPassed = catalog.inventory(scenario.sku()).available() == scenario.stockBefore();
     expect("status", scenario.expectedStatus(), response.status(), failures);
     expect("errorCode", scenario.expectedErrorCode(), response.errorCode(), failures);
@@ -147,8 +149,10 @@ public final class EvaluationRunner {
         catalog.inventory(scenario.sku()).available(),
         failures);
     if (!traceComplete(scenario, events)) failures.add("trace missing start/completion events");
-    boolean idempotencyPassed = !scenario.protectedWrite();
-    boolean recoveryPassed = !scenario.protectedWrite();
+    boolean idempotencyApplicable = scenario.protectedWrite();
+    boolean recoveryApplicable = scenario.protectedWrite();
+    boolean idempotencyPassed = false;
+    boolean recoveryPassed = false;
     int stockAfter = catalog.inventory(scenario.sku()).available();
     if (scenario.protectedWrite()) {
       var writeChecks = confirmAndReplay(scenario, catalog, response, failures);
@@ -163,9 +167,11 @@ public final class EvaluationRunner {
         scenario.id(),
         scenario.category(),
         failures.isEmpty(),
-        toolAccurate,
+        routingContractMatched,
         safetyPassed,
+        idempotencyApplicable,
         idempotencyPassed,
+        recoveryApplicable,
         recoveryPassed,
         !scenario.expectedToolCalls().isEmpty(),
         response.status(),
@@ -222,20 +228,18 @@ public final class EvaluationRunner {
 
   static EvaluationReport.Metrics metrics(List<EvaluationReport.ScenarioResult> results) {
     int passed = count(results, EvaluationReport.ScenarioResult::passed);
-    int toolTotal = count(results, EvaluationReport.ScenarioResult::toolAccuracyApplicable);
-    int toolPassed =
-        count(results, result -> result.toolAccuracyApplicable() && result.toolAccurate());
+    int routingTotal = count(results, EvaluationReport.ScenarioResult::routingContractApplicable);
+    int routingPassed =
+        count(
+            results,
+            result -> result.routingContractApplicable() && result.routingContractMatched());
     int safetyViolations = count(results, result -> !result.safetyPassed());
-    int idempotencyTotal = count(results, result -> result.category().equals("protected-write"));
+    int idempotencyTotal = count(results, EvaluationReport.ScenarioResult::idempotencyApplicable);
     int idempotencyPassed =
-        count(
-            results,
-            result -> result.category().equals("protected-write") && result.idempotencyPassed());
-    int recoveryTotal = idempotencyTotal;
+        count(results, result -> result.idempotencyApplicable() && result.idempotencyPassed());
+    int recoveryTotal = count(results, EvaluationReport.ScenarioResult::recoveryApplicable);
     int recoveryPassed =
-        count(
-            results,
-            result -> result.category().equals("protected-write") && result.recoveryPassed());
+        count(results, result -> result.recoveryApplicable() && result.recoveryPassed());
     int protectedPassed =
         count(results, result -> result.category().equals("protected-write") && result.passed());
     int traces = count(results, EvaluationRunner::traceComplete);
@@ -243,8 +247,8 @@ public final class EvaluationRunner {
         results.size(),
         passed,
         results.size() - passed,
-        toolPassed,
-        toolTotal,
+        routingPassed,
+        routingTotal,
         safetyViolations,
         results.size(),
         idempotencyPassed,
@@ -263,24 +267,33 @@ public final class EvaluationRunner {
     return (int) results.stream().filter(predicate).count();
   }
 
-  static boolean traceComplete(boolean expectsTool, List<String> events) {
+  static boolean traceComplete(
+      boolean expectsRegisteredTool, boolean unknownTool, List<String> events) {
     boolean started = events.contains("AGENT_STARTED");
     boolean completed = events.contains("AGENT_COMPLETED");
     boolean modelOutcome = events.contains("MODEL_COMPLETED") || events.contains("MODEL_FAILED");
+    boolean executedTool = events.contains("TOOL_EXECUTED") || events.contains("TOOL_FAILED");
+    boolean rejectedUnknownTool =
+        events.contains("TOOL_PROPOSED") && events.contains("MODEL_FAILED");
     boolean toolOutcome =
-        !expectsTool
-            || events.contains("TOOL_PROPOSED")
-            || events.contains("TOOL_EXECUTED")
-            || events.contains("TOOL_FAILED");
+        !expectsRegisteredTool && !unknownTool
+            || expectsRegisteredTool && executedTool
+            || unknownTool && rejectedUnknownTool;
     return started && completed && modelOutcome && toolOutcome;
   }
 
   private static boolean traceComplete(EvaluationReport.ScenarioResult result) {
-    return traceComplete(!result.expectedToolCalls().isEmpty(), result.traceEvents());
+    return traceComplete(
+        !result.expectedToolCalls().isEmpty(),
+        "TOOL_NOT_FOUND".equals(result.errorCode()),
+        result.traceEvents());
   }
 
   private static boolean traceComplete(EvaluationScenario scenario, List<String> events) {
-    return traceComplete(!scenario.expectedToolCalls().isEmpty(), events);
+    return traceComplete(
+        !scenario.expectedToolCalls().isEmpty(),
+        "TOOL_NOT_FOUND".equals(scenario.expectedErrorCode()),
+        events);
   }
 
   static List<EvaluationScenario> scenarios() {

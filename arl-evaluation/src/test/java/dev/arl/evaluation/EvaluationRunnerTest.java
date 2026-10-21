@@ -25,21 +25,45 @@ class EvaluationRunnerTest {
     assertEquals(0, report.metrics().failed());
     assertEquals(0, report.metrics().safetyViolations());
     assertEquals(5, report.metrics().protectedWritePassed());
-    assertEquals(44, report.metrics().toolAccuracyTotal());
-    assertEquals(44, report.metrics().toolAccuracyPassed());
+    assertEquals(44, report.metrics().routingContractMatchTotal());
+    assertEquals(44, report.metrics().routingContractMatchPassed());
     assertEquals(59, report.metrics().traceCompletenessPassed());
     assertEquals(5, report.metrics().idempotencyPassed());
     assertEquals(5, report.metrics().recoveryPassed());
+    assertEquals(
+        54,
+        report.scenarios().stream()
+            .filter(result -> !result.idempotencyApplicable() && !result.idempotencyPassed())
+            .count());
+    assertEquals(
+        54,
+        report.scenarios().stream()
+            .filter(result -> !result.recoveryApplicable() && !result.recoveryPassed())
+            .count());
+    assertEquals(
+        5,
+        report.scenarios().stream()
+            .filter(result -> result.idempotencyApplicable() && result.recoveryApplicable())
+            .count());
     assertTrue(report.scenarios().stream().allMatch(EvaluationReport.ScenarioResult::passed));
     assertEquals(
         59,
         report.scenarios().stream().map(EvaluationReport.ScenarioResult::id).distinct().count());
+    assertEquals(
+        10,
+        report.scenarios().stream()
+            .map(EvaluationReport.ScenarioResult::category)
+            .distinct()
+            .count());
 
     JsonNode json = new ObjectMapper().readTree(reportFile.toFile());
     assertEquals("offline-m4", json.path("suite").asText());
     assertEquals(59, json.path("scenarios").size());
     assertTrue(
-        json.path("metricDefinitions").path("toolAccuracy").asText().contains("exactly match"));
+        json.path("metricDefinitions")
+            .path("routingContractMatch")
+            .asText()
+            .contains("do not measure autonomous model routing quality"));
   }
 
   @Test
@@ -97,22 +121,44 @@ class EvaluationRunnerTest {
         () ->
             EvaluationRunner.failureResponse(
                 EvaluationScenario.providerFailure("bad-fault", "other", "ERROR")));
-    assertFalse(EvaluationRunner.traceComplete(false, List.of("AGENT_STARTED", "AGENT_COMPLETED")));
+    assertFalse(
+        EvaluationRunner.traceComplete(false, false, List.of("AGENT_STARTED", "AGENT_COMPLETED")));
+    assertFalse(
+        EvaluationRunner.traceComplete(
+            true,
+            false,
+            List.of("AGENT_STARTED", "MODEL_COMPLETED", "TOOL_PROPOSED", "AGENT_COMPLETED")));
     assertTrue(
         EvaluationRunner.traceComplete(
-            true, List.of("AGENT_STARTED", "MODEL_COMPLETED", "TOOL_PROPOSED", "AGENT_COMPLETED")));
+            true,
+            false,
+            List.of("AGENT_STARTED", "MODEL_COMPLETED", "TOOL_EXECUTED", "AGENT_COMPLETED")));
+    assertTrue(
+        EvaluationRunner.traceComplete(
+            true,
+            false,
+            List.of("AGENT_STARTED", "MODEL_COMPLETED", "TOOL_FAILED", "AGENT_COMPLETED")));
+    assertTrue(
+        EvaluationRunner.traceComplete(
+            false,
+            true,
+            List.of("AGENT_STARTED", "MODEL_FAILED", "TOOL_PROPOSED", "AGENT_COMPLETED")));
   }
 
   @Test
   void incompleteLifecycleAndToolTraceAreRejected() {
-    assertFalse(EvaluationRunner.traceComplete(true, List.of("AGENT_STARTED", "MODEL_COMPLETED")));
+    assertFalse(
+        EvaluationRunner.traceComplete(true, false, List.of("AGENT_STARTED", "MODEL_COMPLETED")));
     assertFalse(
         EvaluationRunner.traceComplete(
-            true, List.of("AGENT_STARTED", "AGENT_COMPLETED", "MODEL_FAILED")));
+            true, false, List.of("AGENT_STARTED", "AGENT_COMPLETED", "MODEL_FAILED")));
+    assertFalse(
+        EvaluationRunner.traceComplete(
+            false, true, List.of("AGENT_STARTED", "MODEL_FAILED", "AGENT_COMPLETED")));
   }
 
   @Test
-  void toolAccuracyUsesOnlyApplicableScenariosAndCountsMismatches() {
+  void routingContractMetricUsesOnlyApplicableCasesAndCountsMismatches() {
     var mismatch =
         new EvaluationReport.ScenarioResult(
             "wrong-tool",
@@ -120,6 +166,8 @@ class EvaluationRunnerTest {
             false,
             false,
             true,
+            false,
+            false,
             false,
             false,
             true,
@@ -141,6 +189,8 @@ class EvaluationRunnerTest {
             false,
             false,
             false,
+            false,
+            false,
             "ERROR",
             "PROVIDER_UNAVAILABLE",
             List.of(),
@@ -152,7 +202,7 @@ class EvaluationRunnerTest {
 
     var metrics = EvaluationRunner.metrics(List.of(mismatch, notApplicable));
 
-    assertEquals(0, metrics.toolAccuracyPassed());
-    assertEquals(1, metrics.toolAccuracyTotal());
+    assertEquals(0, metrics.routingContractMatchPassed());
+    assertEquals(1, metrics.routingContractMatchTotal());
   }
 }
