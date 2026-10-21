@@ -1,4 +1,9 @@
-# Framework compatibility — M0
+# Framework Compatibility - M0
+
+> Historical M0 compatibility snapshot. This records the dependency/API investigation
+> and test status at M0; it is not a description of current M4 functionality. See
+> [project status](project-status.md), [current requirements](requirements.md), and
+> [architecture](architecture.md) for the current application.
 
 Verified on 2026-10-18, macOS arm64. Status: **M0 locally verified with limitations**.
 No commerce functionality was implemented before a minimal ReactAgent compiled and
@@ -84,8 +89,18 @@ These are Java errors in M0; REST error mapping belongs to M1.
 
 | Provider | Model default | Actual endpoint | Live result |
 |---|---|---|---|
-| DeepSeek | `deepseek-flash` | `https://api.deepseek.com/chat/completions` | NOT_RUN: key absent |
+| DeepSeek | `deepseek-flash` | `https://api.deepseek.com/chat/completions` | M0 snapshot: NOT_RUN; later operator-reported live verification is recorded below |
 | Grok | `grok-4.7` | `https://api.x.ai/v1/chat/completions` | NOT_RUN: key absent |
+
+### Later Live Smoke-Test Evidence
+
+This evidence postdates the M0 snapshot and was reported by the operator, not produced by
+the historical M0 or current CI run:
+
+| Provider | Date | Model | Command | Result |
+|---|---|---|---|---|
+| DeepSeek | 2026-10-21 | `deepseek-flash` | `./mvnw -pl arl-core -Darl.live=true -Dtest=LiveProviderTest test` | 2 passed, 2 skipped (Grok tests skipped without credentials) |
+| Grok | - | `grok-4.7` | Same opt-in command | NOT_RUN; no live result supplied |
 
 Models are configurable. Official DeepSeek pricing documentation currently lists
 `deepseek-flash` and `deepseek-v4-pro`; xAI's current chat-completions example uses

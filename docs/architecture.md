@@ -210,12 +210,13 @@ Current M4 Implementation:
 - Confirmed reservation execution with idempotency-key replay protection and stock mutation.
 - Offline evaluation runner with JSON report metrics for safety, trace completeness and protected writes.
 - React/Vite frontend demo for provider status, chat, confirmation and trace viewing.
+- Docker Compose local demo stack with persistent SQLite volume and health-gated startup.
 - `make verify` validates Java modules, requirement evidence and frontend tests/build; `make frontend-verify` focuses the UI.
 
 Upcoming Changes:
 
 - Live/provider-quality evaluation remains future work; current evaluation covers deterministic offline behavior only.
-- Production deployment concerns remain future work: authentication, durable trace/audit storage, Docker/container packaging and hosted deployment.
+- Production deployment concerns remain future work: authentication, durable trace/audit storage, production container hardening and hosted deployment. Local Docker Compose packaging is implemented.
 - Broader commerce writes beyond `reserve_inventory` require separate approval and equivalent protected-write evidence.
 - Ambiguous write-failure reconciliation can be hardened beyond recorded idempotent results.
 - Frontend polish can continue, but frontend code must remain API-client-only and must not own authorization decisions.

@@ -1,5 +1,9 @@
 # M1 implementation plan — approved and implemented
 
+> Historical milestone plan. It records M1's original scope and acceptance criteria;
+> subsequent M2-M4 work has since been approved and implemented. See
+> [project status](project-status.md) for current behavior.
+
 See [implementation and verification](m1-implementation.md) for delivered behavior.
 
 1. Revisit M0 compatibility findings and approve any required stack adjustment first.

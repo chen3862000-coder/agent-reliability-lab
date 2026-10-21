@@ -1,10 +1,16 @@
-# M1 readiness and initial code review
+# M1 Readiness and Initial Code Review
+
+> Historical M1 entry-readiness review. It predates M1 implementation and does not
+> describe current project status. M1-M4 are now implemented; see
+> [project status](project-status.md) and [architecture](architecture.md) for current
+> behavior. Retained as a record of the M1 decision and its original evidence.
 
 ## Decision
 
-The foundation is suitable for **scoped M1 development once the canonical quality gate
-passes**, with the existing experimental-stack limitations retained. This is not a
-production-readiness decision. M1 functionality has not been started by this work.
+At the time of this review, the foundation was suitable for **scoped M1 development once
+the canonical quality gate passed**, with the existing experimental-stack limitations
+retained. This was not a production-readiness decision; M1 functionality had not yet
+started at that historical point.
 
 The original M0 code had passing smoke tests but lacked automated quality enforcement,
 current requirement evidence and important isolation regressions. The engineering
@@ -34,8 +40,10 @@ compatibility limitations. Final test/coverage outcomes are in the generated
 - Java 27 works locally, while Boot's published support range ends at Java 26.
 - AI/Alibaba dependencies remain milestones. DeepSeek thinking is disabled with a
   provider-specific serialization workaround. Do not remove it without wire tests.
-- DeepSeek and Grok live verification remain NOT_RUN until explicit credentialed tests
-  succeed. Offline stubs do not prove account/model availability or model quality.
+- At the time of this M1 review, DeepSeek and Grok live verification were NOT_RUN.
+  Offline stubs did not prove account/model availability or model quality. Later
+  operator-reported DeepSeek verification is recorded in
+  [framework compatibility](framework-compatibility.md); Grok remains NOT_RUN.
 - CI files are local until pushed; GitHub execution and required-review/branch-protection
   settings have not been verified or changed. A maintainer should enable the documented
   protections and arrange independent review before merging.
