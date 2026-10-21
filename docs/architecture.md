@@ -195,7 +195,7 @@ M3/M4 verification separates deterministic offline evaluation from live provider
 - **Retry only safe local reads.** SQLite BUSY failures on read-only catalog queries receive a small bounded retry budget and deadline. Provider model calls and write transactions keep SDK retries disabled; writes are reconciled only by replaying the same idempotency key.
 - **Confirm writes outside the model loop.** The model may propose a reservation, but stock changes only through `POST /agent/confirm` with a client idempotency key. This is confirmation-gated execution, not production-grade identity-bound authorization or a full HITL policy system.
 - **Separate offline verification from live provider claims.** Stubbed tests prove wiring and regression behavior; live accuracy/entitlement remain opt-in evidence.
-- **Keep evaluation deterministic by default.** The 59 M3 scenarios use scripted models and isolated SQLite state; metrics compare observed tool selection and explicit safety/idempotency/recovery/trace invariants to scenario expectations.
+- **Keep evaluation deterministic by default.** The 59 M3 cases across 10 categories use scripted models and isolated SQLite state; routing-contract matches validate scenario-declared tool expectations, not autonomous model quality.
 - **Keep the frontend thin.** M4 improves demo usability, but all validation, confirmation, idempotency and mutation decisions stay in backend/core code.
 - **Distinguish response structure from model output structure.** ARL returns typed API/tool result objects, but does not currently enforce a model `outputSchema`; business response text is derived from tool results rather than model narrative.
 

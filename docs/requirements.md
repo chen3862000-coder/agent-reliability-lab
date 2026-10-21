@@ -104,7 +104,7 @@ HITL policy system: confirmations are not associated with an authenticated user/
 - Missing credentials keep a provider unconfigured; clients are not constructed for absent keys.
 - Each agent request gets fresh execution state; checkpoint/thread IDs are not shared.
 - Output is capped at 1,024 tokens, model calls at four and SDK retries are disabled.
-- SQLite reads retry only classified BUSY failures, with at most three attempts, exponential delay plus jitter, and a 2-second retry deadline. Writes are not blindly retried; replay the same confirmation/idempotency key to recover the committed result or safely complete an uncommitted operation.
+- SQLite reads retry only classified BUSY failures, with at most three attempts, exponential delay plus jitter, and a 2-second retry deadline. If a confirmation write cannot acquire SQLite's write lock within its 100ms busy timeout, the API returns HTTP 503 `WRITE_BUSY_RETRY_SAME_KEY`; retry only with the exact same confirmation ID and idempotency key. Writes are not blindly repeated under a new key.
 
 ## Verification Notes
 
@@ -128,16 +128,16 @@ pending until run with real credentials and recorded evidence.
 ## Offline Evaluation
 
 `make evaluate` runs the offline suite with scripted models and isolated SQLite catalog
-state per scenario. It currently has 59 distinct scenarios and writes
+state per case. It currently has 59 deterministic cases across 10 reliability categories and writes
 `target/evaluation/report.json` with:
 
 - total, passed and failed scenario counts
-- tool accuracy: exact observed-vs-expected tool call count and denominator
+- deterministic routing-contract match: observed tool calls are compared with scenario-declared expectations. Scripted models use the scenario, so this does not measure autonomous model routing quality.
 - safety violations: scenarios violating expected stock invariance or confirmed stock result
-- idempotency: protected writes passing same-key replay and different-confirmation key-reuse checks
-- recovery: protected writes returning the stored result on a replay
+- idempotency: protected writes passing same-key replay and different-confirmation key-reuse checks; other scenarios are explicitly N/A (`idempotencyApplicable=false`)
+- recovery: protected writes returning the stored result on a replay; other scenarios are explicitly N/A (`recoveryApplicable=false`)
 - protected-write pass count
-- trace completeness: scenarios containing lifecycle and applicable model/tool outcome events
+- trace completeness: scenarios containing lifecycle events, model outcome, and registered-tool execution/failure; unknown-tool rejection requires a proposal and model failure
 - per-scenario status, error code, tool calls, stock delta and trace events
 
 The offline suite is deterministic and does not call paid providers. It is not evidence of
@@ -150,6 +150,15 @@ With Docker Engine and Compose installed, start the full local stack with one co
 ```sh
 ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
 ```
+
+For a cold, uncached image build before starting the stack, use `make demo-cold`. The
+backend Docker build resolves Maven dependencies from POM-only layers and uses a BuildKit
+cache for `/root/.m2`. It skips tests and static checks already enforced by `make verify`;
+it still compiles and packages the backend. `make demo` uses normal Docker layer caching.
+Cold-build verification on Apple Silicon Docker Desktop completed successfully in 163.92s
+(about 2m44s), including both images, container startup and health checks. `/health` and
+`/providers` were verified through the frontend proxy. This is a local measurement, not a
+build-time guarantee for other machines or network conditions.
 
 Open `http://127.0.0.1:8088`. Provider keys are passed at runtime, not baked into images.
 Compose persists SQLite in the `arl-data` named volume. Stop with `make demo-down`; this

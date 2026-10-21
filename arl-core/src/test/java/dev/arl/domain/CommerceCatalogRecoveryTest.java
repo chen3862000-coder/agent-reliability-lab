@@ -29,4 +29,33 @@ class CommerceCatalogRecoveryTest {
       assertEquals(20, catalog.inventory("SKU-1001").available());
     }
   }
+
+  @Test
+  void busyConfirmationReturnsSameKeyRetrySignalAndCanThenCommit() throws Exception {
+    Path database = temp.resolve("busy-confirmation.db");
+    try (var catalog = CommerceCatalog.fileBacked(database.toString())) {
+      var proposal = catalog.proposeReservation("SKU-1001", 3);
+      try (var blocker = DriverManager.getConnection("jdbc:sqlite:" + database)) {
+        blocker.setAutoCommit(false);
+        try (var update =
+            blocker.prepareStatement(
+                "update confirmations set consumed_at_epoch=consumed_at_epoch where confirmation_id=?")) {
+          update.setString(1, proposal.confirmationId());
+          assertEquals(1, update.executeUpdate());
+        }
+
+        var busy = catalog.confirmReservation(proposal.confirmationId(), "busy-retry-key-123");
+        assertEquals("WRITE_BUSY_RETRY_SAME_KEY", busy.errorCode());
+        assertEquals(20, catalog.inventory("SKU-1001").available());
+
+        blocker.rollback();
+      }
+
+      var retry = catalog.confirmReservation(proposal.confirmationId(), "busy-retry-key-123");
+
+      assertEquals(null, retry.errorCode());
+      assertEquals(17, retry.remaining());
+      assertEquals(17, catalog.inventory("SKU-1001").available());
+    }
+  }
 }

@@ -1,4 +1,4 @@
-.PHONY: verify test format start run evaluate demo demo-down frontend-install frontend-dev frontend-verify live-test harness-test
+.PHONY: verify test format start run evaluate demo demo-cold demo-down frontend-install frontend-dev frontend-verify live-test harness-test
 
 verify:
 	python3 scripts/verify.py
@@ -32,6 +32,10 @@ frontend-verify:
 
 demo:
 	docker compose up --build
+
+demo-cold:
+	docker compose build --no-cache
+	docker compose up -d
 
 demo-down:
 	docker compose down

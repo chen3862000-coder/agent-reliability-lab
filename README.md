@@ -20,7 +20,7 @@ reasoning loop and Spring AI OpenAI-compatible clients for DeepSeek and Grok.
 - Returns structured tool results instead of trusting model narrative as business truth.
 - Records bounded in-memory traces for model calls, tool proposals, tool execution and errors.
 - Selects `deepseek` or `grok` per request with explicit errors and no provider fallback.
-- Runs 55 deterministic offline evaluation scenarios with explicit JSON metrics.
+- Runs 59 deterministic offline cases across 10 reliability categories with explicit JSON metrics.
 - Includes a React demo UI for chat, protected confirmations, provider status and traces.
 
 ## What It Is Not
@@ -121,9 +121,10 @@ Run offline evaluation separately when you want the scenario report:
 make evaluate
 ```
 
-The report is written to `target/evaluation/report.json`. The 59 distinct offline scenarios
-report tool-accuracy, safety-invariant, idempotency, recovery, protected-write and trace
-completeness metrics. They do not measure live-provider answer quality.
+The report is written to `target/evaluation/report.json`. The 59 deterministic cases across
+10 reliability categories report routing-contract matches, safety invariants, idempotency,
+recovery, protected writes and trace completeness. Scripted scenarios validate application
+contracts; they do not measure autonomous or live-provider model quality.
 
 Run the frontend after starting the backend:
 
@@ -139,6 +140,10 @@ For a one-command local container demo, with Docker Engine and Compose installed
 ```sh
 ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
 ```
+
+Use `make demo-cold` to rebuild both images without Docker layer cache before starting. A
+cold build was verified on Apple Silicon Docker Desktop in about 2m44s; actual duration
+depends on host and network.
 
 Open `http://127.0.0.1:8088`. SQLite persists in a named volume. `make demo-down` stops
 the stack without deleting data. Provider keys are runtime environment values, never

@@ -95,6 +95,8 @@ public final class CommerceCatalog implements AutoCloseable {
       return failure.result();
     } catch (SQLException failure) {
       rollback();
+      if (isBusy(failure))
+        return failure("WRITE_BUSY_RETRY_SAME_KEY", confirmationId, idempotencyKey);
       throw new IllegalStateException("Cannot confirm reservation", failure);
     } catch (IllegalStateException failure) {
       rollback();
@@ -134,7 +136,7 @@ public final class CommerceCatalog implements AutoCloseable {
       throws SQLException {
     long now = Instant.now().getEpochSecond();
     int confirmationRows =
-        update(
+        updateChecked(
             "update confirmations set consumed_at_epoch=? where confirmation_id=? and consumed_at_epoch is null and expires_at_epoch>=?",
             now,
             confirmation.confirmationId(),
@@ -147,7 +149,7 @@ public final class CommerceCatalog implements AutoCloseable {
               idempotencyKey));
     }
     int stockRows =
-        update(
+        updateChecked(
             "update inventory set available=available-? where sku=? and available>=?",
             confirmation.quantity(),
             confirmation.sku(),
@@ -161,7 +163,7 @@ public final class CommerceCatalog implements AutoCloseable {
   }
 
   private void acquireWriteLock(String confirmationId) throws SQLException {
-    update(
+    updateChecked(
         "update confirmations set confirmation_id=confirmation_id where confirmation_id=?",
         confirmationId);
   }
@@ -283,7 +285,10 @@ public final class CommerceCatalog implements AutoCloseable {
 
   private static boolean isBusy(SQLException failure) {
     int code = failure.getErrorCode();
-    return code == 5 || code == 6 || "SQLITE_BUSY".equals(failure.getSQLState());
+    return code == 5
+        || code == 6
+        || "SQLITE_BUSY".equals(failure.getSQLState())
+        || "SQLITE_LOCKED".equals(failure.getSQLState());
   }
 
   private static void pauseBeforeReadRetry(int attempt, long deadline) {
@@ -376,11 +381,17 @@ public final class CommerceCatalog implements AutoCloseable {
   }
 
   private int update(String sql, Object... values) {
+    try {
+      return updateChecked(sql, values);
+    } catch (SQLException failure) {
+      throw new IllegalStateException("Cannot execute catalog statement", failure);
+    }
+  }
+
+  private int updateChecked(String sql, Object... values) throws SQLException {
     try (var statement = connection.prepareStatement(sql)) {
       for (int i = 0; i < values.length; i++) statement.setObject(i + 1, values[i]);
       return statement.executeUpdate();
-    } catch (SQLException failure) {
-      throw new IllegalStateException("Cannot execute catalog statement", failure);
     }
   }
 

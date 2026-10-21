@@ -128,6 +128,7 @@
         "dev.arl.tools.CommerceToolRegistryTest#registryUsesExplicitSafeExecutorForProtectedProposal",
         "dev.arl.tools.CommerceToolRegistryTest#separateCatalogConnectionsSerializeSameConfirmation",
         "dev.arl.domain.CommerceCatalogRecoveryTest#expiredConfirmationNeverChangesInventory",
+        "dev.arl.domain.CommerceCatalogRecoveryTest#busyConfirmationReturnsSameKeyRetrySignalAndCanThenCommit",
         "dev.arl.tools.CommerceToolRegistryTest#protectedReservationRequiresConfirmationBeforeMutatingStock",
         "dev.arl.tools.CommerceToolRegistryTest#confirmationIsIdempotentAndRejectsKeyReuseForChangedOperation",
         "dev.arl.tools.CommerceToolRegistryTest#fileBackedCatalogPreservesStockAndIdempotencyAcrossRestart",
