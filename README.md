@@ -1,204 +1,144 @@
 # Agent Reliability Lab
 
+[![Quality](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/quality.yml/badge.svg)](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/quality.yml)
+![Java 27](https://img.shields.io/badge/Java-27-orange)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Don't just build agents. Make them reliable.**
 
-Agent Reliability Lab (ARL) is a Java/Spring research application for building
-deterministic reliability controls around LLM agents. The core idea is simple:
-LLMs may propose actions, but application-owned systems validate, bound, trace
-and execute them.
+Agent Reliability Lab (ARL) is a Java/Spring research application for adding
+deterministic reliability controls around LLM agents. Models may propose actions;
+application-owned systems validate, bound, trace and execute them.
 
-The current app is a local commerce reliability lab backed by synthetic product,
-inventory and order fixtures. It supports read-only agent tools plus protected,
-confirmation-gated inventory reservations. It uses Alibaba `ReactAgent` for the
-reasoning loop and Spring AI OpenAI-compatible clients for DeepSeek and Grok.
+The local demo uses synthetic commerce data, Alibaba `ReactAgent`, Spring AI
+OpenAI-compatible clients for DeepSeek/Grok, SQLite-backed confirmation-gated inventory
+reservations, deterministic offline evaluation and a React UI.
 
-## What It Does
+![ARL layered system architecture](docs/diagrams/system-architecture.png)
 
-- Exposes a loopback HTTP API for agent chat, health, provider status and traces.
-- Lets a model call read-only commerce tools: `get_product`, `get_inventory` and `get_order`.
-- Keeps baseline `reserve_inventory` proposal-only, while protected mode creates a confirmation token that must be consumed through `/agent/confirm` before stock changes.
-- Returns structured tool results instead of trusting model narrative as business truth.
-- Records bounded in-memory traces for model calls, tool proposals, tool execution and errors.
-- Selects `deepseek` or `grok` per request with explicit errors and no provider fallback.
-- Runs 59 deterministic offline cases across 10 reliability categories with explicit JSON metrics.
-- Includes a React demo UI for chat, protected confirmations, provider status and traces.
+*The browser UI is an API client. Safety and write decisions remain in the backend.*
 
-## What It Is Not
+![Agent Reliability Lab browser demo](docs/images/demo-ui.png)
 
-ARL is not a production commerce system. M4 has no authentication, durable trace/audit
-storage or identity-bound authorization. Docker Compose is local-demo packaging only;
-there is no production deployment profile or live evaluation dashboard.
+## Features
 
-For current milestone status and limitations, see [project status](docs/project-status.md).
+- HTTP API for agent chat, health, provider status, confirmation and traces.
+- Read tools for product, inventory and order data.
+- `BASELINE` reservation proposals do not mutate stock; `PROTECTED` proposals require a separate confirmation.
+- SQLite transactions and idempotency keys protect the reservation write path.
+- Bounded in-memory traces record model and tool events.
+- Offline evaluator with 59 deterministic cases across 10 reliability categories.
+- React demo for chat, provider status, confirmation and trace inspection.
+- Docker Compose local demo with health-gated startup and persistent SQLite volume.
 
-## Tech Stack
+## Scope
 
-- Java 27 and Maven Wrapper
-- Spring Boot 4.0.8
-- Spring AI 2.0.0-M1 OpenAI-compatible chat adapter
-- Alibaba Agent Framework 2.0.0-M1.1 `ReactAgent`
-- JUnit, Spotless, Checkstyle, PMD CPD and JaCoCo through the Maven reactor
-- Offline evaluation module with scripted-model scenarios
-- Vite React TypeScript frontend
-- Python requirement-evidence gate in `scripts/verify.py`
+ARL is a local demo, not a production commerce service. It has no authentication,
+identity-bound confirmation authorization, or durable trace/audit store. Offline cases
+check deterministic application contracts; they do not measure autonomous model quality.
+Live provider tests are opt-in and their evidence is provider-specific.
 
-Configuration lives in `arl-server/src/main/resources/application.yml` and reads secrets
-from environment variables. Runtime and verification details are in
-[requirements](docs/requirements.md).
+## Run the Demo
 
-## Repository Layout
+Requirements: Docker Engine and Docker Compose for the container demo, or Java 27, Node 24
+and npm 11 for running processes locally. Provider keys are optional for startup and
+provider-status viewing, but required for chat and may incur charges.
 
-- `arl-core`: provider registry, ReactAgent factory, agent execution service, tools,
-  domain fixtures and trace store.
-- `arl-server`: Spring Boot composition root and HTTP controllers.
-- `arl-evaluation`: deterministic offline evaluation runner and report generation.
-- `frontend`: Vite React TypeScript demo UI; API client only, no authorization logic.
-- `config/requirements.json`: automated requirement-to-test mappings.
-- `docs/`: architecture, compatibility, status, requirements, quality and review notes.
-- `scripts/`: start script and quality gate tooling.
-
-## Run Locally
+### Containerized
 
 ```sh
+ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
+```
+
+Open `http://127.0.0.1:8088`. Compose health-gates frontend startup and stores SQLite in
+the `arl-data` named volume. To stop the stack while preserving its data:
+
+```sh
+make demo-down
+```
+
+Use `make demo-cold` for an uncached image build. A cold build was verified on Apple
+Silicon Docker Desktop in about 2m44s; actual duration depends on host/network conditions.
+Provider keys are runtime environment variables, never image build arguments.
+
+### Local Processes
+
+Start the backend in one terminal:
+
+```sh
+export ARL_DEFAULT_PROVIDER=deepseek
+export DEEPSEEK_API_KEY='your-deepseek-key'
+# Optional: persist stock/idempotency across restarts
+export ARL_DB_PATH="$PWD/target/local/arl.db"
 make start
 ```
 
-The server binds to `http://127.0.0.1:8080` by default. Startup, health and provider
-status do not call an LLM. Chat requests require a configured provider key and may incur
-provider charges.
+In another terminal, install and start the frontend:
 
-Example requests:
+```sh
+make frontend-install
+make frontend-dev
+```
+
+Open `http://127.0.0.1:5173`. The Vite server proxies API requests to
+`http://127.0.0.1:8080`. For Grok, use `ARL_DEFAULT_PROVIDER=grok` and `XAI_API_KEY`.
+ARL does not automatically load `.env`; export values in the shell that starts the app.
+
+### Try the Flows
+
+1. Check that the provider panel shows the provider as `CONFIGURED`.
+2. Choose the `Inventory` sample prompt and send it in `BASELINE` mode.
+3. Choose `Protected reserve`, submit the proposal, then confirm it in the reservation card.
+4. Load the trace to inspect ordered model/tool events.
+
+Example API requests:
 
 ```sh
 curl http://127.0.0.1:8080/health
 curl http://127.0.0.1:8080/providers
 curl http://127.0.0.1:8080/agent/chat -H 'Content-Type: application/json' \
   -d '{"message":"Check inventory for SKU-1001","provider":"deepseek","mode":"BASELINE"}'
-curl http://127.0.0.1:8080/traces/TRACE_ID_FROM_RESPONSE
 ```
 
-Protected reservation flow:
+Expected outcomes: missing keys yield `PROVIDER_NOT_CONFIGURED`; insufficient inventory
+does not produce a confirmation; replaying the same confirmation/key returns the prior
+result; using that key with another confirmation returns `IDEMPOTENCY_KEY_REUSED`. Blank
+`ARL_DB_PATH` resets in-memory stock on restart; file-backed SQLite preserves it.
 
-```sh
-curl http://127.0.0.1:8080/agent/chat -H 'Content-Type: application/json' \
-  -d '{"message":"Reserve 3 units of SKU-1001","provider":"deepseek","mode":"PROTECTED"}'
-
-curl http://127.0.0.1:8080/agent/confirm -H 'Content-Type: application/json' \
-  -d '{"confirmationId":"CONFIRMATION_ID_FROM_CHAT","idempotencyKey":"client-key-12345"}'
-```
-
-Provider setup is environment-based:
-
-```sh
-export ARL_DEFAULT_PROVIDER=deepseek
-export DEEPSEEK_API_KEY='your-deepseek-key'
-make start
-```
-
-Use `XAI_API_KEY` and `ARL_DEFAULT_PROVIDER=grok` for Grok. See
-[requirements](docs/requirements.md) for all supported variables.
-
-Set `ARL_DB_PATH=/path/to/arl.db` to preserve inventory and idempotency records across restarts. Leave it blank for an in-memory database.
-
-## Verify
+## Verification
 
 ```sh
 make verify
 ```
 
-This is the canonical local/CI gate. It runs Java checks and tests, coverage thresholds,
-architecture checks and requirement-evidence validation. Use `make format` to apply Java
-formatting.
+The canonical gate runs Java checks/tests, coverage and architecture checks, requirement
+evidence, frontend tests/build and `npm audit --audit-level=high`. `make format` applies
+Java formatting.
 
-The same gate runs `npm audit --audit-level=high` against the pinned frontend lockfile.
-
-Default tests use scripted models and loopback HTTP stubs, not paid provider APIs. Live
-provider smoke tests are opt-in with `make live-test` after exporting credentials.
-
-Run offline evaluation separately when you want the scenario report:
+Run deterministic offline evaluation separately:
 
 ```sh
 make evaluate
 ```
 
-The report is written to `target/evaluation/report.json`. The 59 deterministic cases across
-10 reliability categories report routing-contract matches, safety invariants, idempotency,
-recovery, protected writes and trace completeness. Scripted scenarios validate application
-contracts; they do not measure autonomous or live-provider model quality.
+This writes `target/evaluation/report.json`. Its routing-contract metric compares observed
+tool execution with scenario-declared expectations; scripted models follow those
+expectations, so the metric is not a measure of autonomous model routing quality. Live
+provider tests are opt-in with `make live-test` and credentials.
 
-Run the frontend after starting the backend:
+## Project Structure
 
-```sh
-make frontend-install
-make frontend-dev
-```
-
-The Vite dev server proxies API calls to `http://127.0.0.1:8080`.
-
-For a one-command local container demo, with Docker Engine and Compose installed:
-
-```sh
-ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
-```
-
-Use `make demo-cold` to rebuild both images without Docker layer cache before starting. A
-cold build was verified on Apple Silicon Docker Desktop in about 2m44s; actual duration
-depends on host and network.
-
-Open `http://127.0.0.1:8088`. SQLite persists in a named volume. `make demo-down` stops
-the stack without deleting data. Provider keys are runtime environment values, never
-image build arguments.
-
-## Demo Walkthrough
-
-1. Export a provider key and start the backend:
-
-```sh
-export ARL_DEFAULT_PROVIDER=deepseek
-export DEEPSEEK_API_KEY='your-deepseek-key'
-make start
-```
-
-2. In another terminal, start the frontend:
-
-```sh
-make frontend-install
-make frontend-dev
-```
-
-3. Open `http://127.0.0.1:5173` and verify the provider panel shows `deepseek` as `CONFIGURED`.
-4. Click the inventory sample prompt or enter `Check inventory for SKU-1001`, then send in `BASELINE` mode.
-5. Switch to `PROTECTED`, click the reservation sample prompt, and send `Reserve 3 units of SKU-1001`.
-6. Confirm the reservation card. The backend consumes the confirmation token with the displayed idempotency key and returns remaining stock.
-7. Click `Load trace` to inspect the ordered trace events for the request.
-
-Common demo outcomes:
-
-- Missing API key: `/providers` shows `NOT_CONFIGURED`; chat returns `PROVIDER_NOT_CONFIGURED`.
-- Insufficient inventory: reserving `SKU-1002` returns `INSUFFICIENT_INVENTORY`; no confirmation card appears.
-- Idempotency replay: confirming the same token/key again returns the same result without another stock change.
-- Idempotency key reuse: reusing a key for a different confirmation returns `IDEMPOTENCY_KEY_REUSED`.
-- Restart behavior: leave `ARL_DB_PATH` blank to reset stock on restart; set it to a file path to preserve stock and idempotency records.
-
-## Container Demo
-
-With Docker Engine and Compose installed, run the complete backend/frontend demo:
-
-```sh
-ARL_DEFAULT_PROVIDER=deepseek DEEPSEEK_API_KEY='your-deepseek-key' make demo
-```
-
-Open `http://127.0.0.1:8088`. The backend health check gates frontend startup, and SQLite is
-persisted in the `arl-data` named volume. Stop services with `make demo-down`; the volume is
-preserved. The demo has no authentication and is not for production deployment. Provider
-keys are runtime environment values, never Docker build arguments.
+- `arl-core`: providers, agent orchestration, tools, policy, domain and trace store.
+- `arl-server`: Spring Boot composition root and HTTP API.
+- `arl-evaluation`: offline scenario runner and JSON reports.
+- `frontend`: Vite React TypeScript API client.
+- `docs/`: architecture, status, compatibility, requirements and quality documentation.
 
 ## Documentation
 
 - [Project status](docs/project-status.md)
-- [Requirements and configuration](docs/requirements.md)
 - [Architecture](docs/architecture.md)
-- [M1 implementation details](docs/m1-implementation.md)
+- [Requirements and configuration](docs/requirements.md)
 - [Quality harness](docs/quality-harness.md)
-- [Framework compatibility](docs/framework-compatibility.md)
-- [Code review protocol](docs/code-review.md)
+- [Framework compatibility and provider evidence](docs/framework-compatibility.md)
+- [Historical M1 implementation snapshot](docs/m1-implementation.md)
