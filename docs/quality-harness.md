@@ -78,12 +78,12 @@ specific acceptance tests when their milestone is approved.
 
 ## CI and review enforcement
 
-`.github/workflows/quality.yml` runs the same gate on pushes and pull requests using
+`.github/workflows/verify.yml` runs the same gate on pushes and pull requests using
 Java 27. Action revisions are immutable, token permissions are read-only, no provider
 secrets are supplied and test/coverage evidence is retained even on failure.
 
 The workflow is configured locally; it cannot report a GitHub run until pushed.
-Repository administrators should require the `quality` check and one approving review,
+Repository administrators should require the `verify` check and one approving review,
 dismiss approvals after changes, and block merging unresolved review conversations.
 Branch protection is a GitHub setting and has not been changed by this work. Do not
 claim the PR template itself prevents merging. Assign CODEOWNERS only after the actual

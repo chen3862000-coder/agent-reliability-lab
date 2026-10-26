@@ -1,6 +1,6 @@
 # Agent Reliability Lab
 
-[![Quality](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/quality.yml/badge.svg)](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/quality.yml)
+[![Verify](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/verify.yml/badge.svg)](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/verify.yml)
 ![Java 27](https://img.shields.io/badge/Java-27-orange)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
