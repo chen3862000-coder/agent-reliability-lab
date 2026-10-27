@@ -30,6 +30,14 @@
 - Create new modules only when they contain executable functionality.
 - Use Alibaba `ReactAgent`; do not implement a custom ReAct loop.
 
+## Code Documentation
+- Document contracts, not syntax. Prioritize public APIs and key classes where a caller could misuse the code from the signature alone: mutation versus proposal, idempotency and retry rules, expiry/lifecycle, resource ownership, execution limits, error semantics, and evidence scope.
+- Add class-level Javadoc to public classes/interfaces whose purpose or trust boundary is not obvious. Add method-level Javadoc for non-obvious public methods; use `@param`, `@return`, and `@throws` when behavior is not evident from names and types.
+- Do not add blanket Javadoc. Simple records, DTO accessors, trivial overrides, and self-explanatory private helpers should stay uncommented; comments must explain intent or guarantees, not restate code.
+- Keep comments accurate and current. Update affected Javadocs when behavior changes, and do not claim live evaluation, identity-bound authorization, durable audit, or other capabilities the code does not implement.
+- Prefer `{@link}`/`{@code}` for code references. Keep comments concise and account for Checkstyle file-length limits; refactor or condense rather than weakening or suppressing checks.
+- When adding or changing a public contract, include its documentation in the same change and run `make format` plus `make verify`.
+
 ## Provider Gotchas
 - The app does not auto-load `.env`; environment variables must already be exported.
 - `ARL_DB_PATH` controls SQLite persistence; blank means in-memory stock/idempotency reset on restart.
