@@ -32,11 +32,13 @@ public final class TraceStore {
     this.capacity = capacity;
   }
 
+  /** Saves a completed snapshot, evicting the oldest inserted trace when capacity is exceeded. */
   public synchronized void save(Trace trace) {
     traces.put(trace.traceId(), trace);
     while (traces.size() > capacity) traces.remove(traces.keySet().iterator().next());
   }
 
+  /** Looks up a retained trace; an empty result is expected after eviction or process restart. */
   public synchronized Optional<Trace> find(String id) {
     return Optional.ofNullable(traces.get(id));
   }

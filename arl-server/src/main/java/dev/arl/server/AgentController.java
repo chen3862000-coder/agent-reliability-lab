@@ -13,6 +13,7 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/** HTTP adapter for chat, confirmation, provider metadata, and diagnostic trace lookup. */
 @RestController
 public final class AgentController {
   public record ChatRequest(
@@ -40,12 +41,19 @@ public final class AgentController {
     this.traces = traces;
   }
 
+  /** Runs one bounded agent chat; omitted mode/provider values use baseline/default behavior. */
   @PostMapping("/agent/chat")
   public ResponseEntity<AgentResponse> chat(@Valid @RequestBody ChatRequest request) {
     AgentResponse result = agent.chat(request.message(), request.provider(), request.mode());
     return ResponseEntity.status(status(result.errorCode())).body(result);
   }
 
+  /**
+   * Confirms a prior protected reservation proposal using a caller idempotency key.
+   *
+   * <p>Retry {@code WRITE_BUSY_RETRY_SAME_KEY} with the same confirmation ID and key. This local
+   * demo does not authenticate callers or bind confirmations to user identity.
+   */
   @PostMapping("/agent/confirm")
   public ResponseEntity<dev.arl.domain.CommerceCatalog.ReservationCommit> confirm(
       @Valid @RequestBody ConfirmRequest request) {
@@ -74,6 +82,7 @@ public final class AgentController {
     return providers.availableProviders();
   }
 
+  /** Returns a retained in-memory trace; traces are diagnostic, not durable audit records. */
   @GetMapping("/traces/{traceId}")
   public TraceStore.Trace trace(@PathVariable String traceId) {
     return traces.find(traceId).orElseThrow(() -> new TraceNotFoundException());

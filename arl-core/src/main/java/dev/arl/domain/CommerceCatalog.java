@@ -7,7 +7,7 @@ import java.util.HexFormat;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-/** SQLite-backed synthetic commerce state and M2 confirmation/idempotency boundary. */
+/** SQLite-backed synthetic commerce state; use SafeToolExecutor for reservation policy. */
 public final class CommerceCatalog implements AutoCloseable {
   public record Product(String sku, String name, int priceCents, String currency) {}
 
@@ -33,14 +33,17 @@ public final class CommerceCatalog implements AutoCloseable {
   private static final long READ_DEADLINE_MILLIS = 2000;
   private final Connection connection;
 
+  /** Creates an isolated in-memory catalog; its state is lost when the connection closes. */
   public CommerceCatalog() {
     this("jdbc:sqlite:file:arl-" + UUID.randomUUID() + "?mode=memory&cache=shared");
   }
 
+  /** Opens a persistent catalog at {@code path}. */
   public static CommerceCatalog fileBacked(String path) {
     return new CommerceCatalog("jdbc:sqlite:" + path);
   }
 
+  /** Opens a catalog using a SQLite JDBC URL and seeds missing synthetic fixtures. */
   public CommerceCatalog(String url) {
     try {
       connection = DriverManager.getConnection(url);
@@ -66,6 +69,11 @@ public final class CommerceCatalog implements AutoCloseable {
     return selectOrder(orderId);
   }
 
+  /**
+   * Creates a five-minute confirmation without decrementing stock; call through {@code
+   * SafeToolExecutor} for full policy validation. Throws {@link ReservationFailure} if the SKU is
+   * missing or stock is insufficient.
+   */
   public synchronized ReservationProposal proposeReservation(String sku, int quantity) {
     Inventory stock = selectInventory(sku);
     if (stock == null) throw new ReservationFailure("NOT_FOUND");
@@ -83,6 +91,11 @@ public final class CommerceCatalog implements AutoCloseable {
     return new ReservationProposal(confirmationId, sku, quantity, expiresAt);
   }
 
+  /**
+   * Atomically consumes a proposal, decrements stock on success, and stores the result. Replaying
+   * the same confirmation/key returns its result; key reuse is rejected. Retry {@code
+   * WRITE_BUSY_RETRY_SAME_KEY} with the same IDs; do not blindly retry unexpected failures.
+   */
   public synchronized ReservationCommit confirmReservation(
       String confirmationId, String idempotencyKey) {
     try {
@@ -421,6 +434,7 @@ public final class CommerceCatalog implements AutoCloseable {
     }
   }
 
+  /** Closes the database connection owned by this catalog. */
   @Override
   public void close() {
     try {

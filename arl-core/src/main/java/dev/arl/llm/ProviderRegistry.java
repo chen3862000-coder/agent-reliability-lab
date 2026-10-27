@@ -128,6 +128,12 @@ public final class ProviderRegistry implements LlmProviderRegistry {
     return execution.execute(request, patched);
   }
 
+  /**
+   * Resolves the selected provider or the configured default when {@code providerId} is null.
+   *
+   * <p>No fallback is attempted. Unknown IDs and known providers without credentials throw distinct
+   * {@link ProviderException} codes.
+   */
   @Override
   public ChatModel resolve(String providerId) {
     String id = providerId == null ? defaultProvider : providerId;
@@ -138,6 +144,7 @@ public final class ProviderRegistry implements LlmProviderRegistry {
     return model;
   }
 
+  /** Returns configured provider descriptors; this does not contact providers or verify access. */
   @Override
   public List<LlmProviderInfo> availableProviders() {
     return infos;

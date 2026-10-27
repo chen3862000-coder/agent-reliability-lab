@@ -13,7 +13,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.ai.chat.model.ChatModel;
 
-/** Agent orchestration. ReactAgent owns the reasoning loop; responses use observed tool data. */
+/**
+ * Agent orchestration. ReactAgent owns the reasoning loop; responses use observed tool data. Every
+ * chat invocation gets fresh graph/run state and a trace, including handled failures.
+ */
 public final class AgentExecutionService {
   private final LlmProviderRegistry providers;
   private final String defaultProvider;
@@ -31,6 +34,13 @@ public final class AgentExecutionService {
     this.traces = traces;
   }
 
+  /**
+   * Executes a bounded chat using the requested provider or configured default.
+   *
+   * <p>{@code mode} may be {@code BASELINE} or {@code PROTECTED}; null mode is baseline. The
+   * execution is limited to four model calls and eight cumulative proposed tool calls. The returned
+   * response carries a trace ID for both success and handled failure outcomes.
+   */
   public AgentResponse chat(String message, String provider, String mode) {
     var run = new RunState(provider == null ? defaultProvider : provider, "PROTECTED".equals(mode));
     run.events().add(event("AGENT_STARTED", null, "RUNNING", null, 0));

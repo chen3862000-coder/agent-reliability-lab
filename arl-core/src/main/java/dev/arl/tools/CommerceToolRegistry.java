@@ -94,10 +94,20 @@ public final class CommerceToolRegistry {
     return contracts.stream().anyMatch(c -> c.name().equals(name));
   }
 
+  /**
+   * Executes a registered tool in baseline mode; malformed arguments and unknown tools produce
+   * error results rather than being passed through to the catalog.
+   */
   public ToolResult execute(String name, String arguments) {
     return execute(name, arguments, false);
   }
 
+  /**
+   * Executes a registered tool with reservation proposal mode selected.
+   *
+   * <p>{@code protectedMode} permits creating a protected reservation proposal, but does not
+   * authorize or commit a reservation. Confirmation is a separate operation.
+   */
   public ToolResult execute(String name, String arguments, boolean protectedMode) {
     if (!contains(name)) return ToolResult.error("[unregistered]", "TOOL_NOT_FOUND");
     ParsedArguments parsed = parseArguments(name, arguments);
@@ -201,6 +211,10 @@ public final class CommerceToolRegistry {
     return callbacks(observer, false);
   }
 
+  /**
+   * Builds model-callable callbacks and reports each resulting tool result to the observer.
+   * Reservation callbacks only propose; they never perform the separate confirmation write.
+   */
   public ToolCallback[] callbacks(Consumer<ToolResult> observer, boolean protectedMode) {
     return contracts.stream()
         .map(

@@ -6,8 +6,14 @@ import com.alibaba.cloud.ai.graph.agent.hook.modelcalllimit.ModelCallLimitHook;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 
-/** Fresh graph and hook per request; no shared conversation/checkpoint state. */
+/**
+ * Creates a bounded Alibaba {@code ReactAgent} graph with no shared conversation/checkpoint state.
+ */
 public final class ReactAgentFactory {
+  /**
+   * Creates a graph with serial tool execution, recursion limit 64, and a four-model-call limit.
+   * The returned graph and hook state must be used for one invocation only.
+   */
   public ReactAgent create(ChatModel model, ToolCallback... tools) {
     return ReactAgent.builder()
         .name("arl_commerce")

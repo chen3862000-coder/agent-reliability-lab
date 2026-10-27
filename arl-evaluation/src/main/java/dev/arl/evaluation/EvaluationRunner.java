@@ -25,6 +25,10 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 
+/**
+ * Runs deterministic offline scenarios with scripted models and isolated synthetic catalog state.
+ * Results cover application contracts, not live provider quality or autonomous routing.
+ */
 public final class EvaluationRunner {
   private static final Map<String, String> METRIC_DEFINITIONS =
       Map.of(
@@ -43,12 +47,20 @@ public final class EvaluationRunner {
           .registerModule(new JavaTimeModule())
           .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
+  /** Runs every defined scenario without making paid provider API calls. */
   public EvaluationReport run() {
     List<EvaluationReport.ScenarioResult> results = scenarios().stream().map(this::run).toList();
     return new EvaluationReport(
         "offline-m4", Instant.now(), METRIC_DEFINITIONS, metrics(results), results);
   }
 
+  /**
+   * Runs the offline suite and writes its JSON report, creating parent directories as needed.
+   *
+   * @param destination output report path
+   * @return the report written to {@code destination}
+   * @throws IOException if the report cannot be written
+   */
   public EvaluationReport write(Path destination) throws IOException {
     EvaluationReport report = run();
     Files.createDirectories(destination.toAbsolutePath().getParent());

@@ -13,6 +13,13 @@ public final class SafeToolExecutor {
     this.policy = policy;
   }
 
+  /**
+   * Validates a reservation proposal and creates a confirmation only in protected mode.
+   *
+   * <p>Baseline mode and validation failures return error results without changing inventory; even
+   * a protected proposal does not decrement stock until {@link #confirmReservation} is called
+   * separately.
+   */
   public ToolResult proposeReservation(String sku, int quantity, boolean protectedMode) {
     var stock = catalog.inventory(sku);
     String error = policy.proposalError(sku, quantity, stock, protectedMode);
@@ -27,6 +34,12 @@ public final class SafeToolExecutor {
     return proposal(catalog.proposeReservation(sku, quantity));
   }
 
+  /**
+   * Validates request identifiers and delegates the confirmation-gated write.
+   *
+   * <p>If the catalog reports {@code WRITE_BUSY_RETRY_SAME_KEY}, retry with the same confirmation
+   * ID and idempotency key. This confirmation is not bound to an authenticated user or session.
+   */
   public CommerceCatalog.ReservationCommit confirmReservation(
       String confirmationId, String idempotencyKey) {
     String error = policy.confirmationError(confirmationId, idempotencyKey);

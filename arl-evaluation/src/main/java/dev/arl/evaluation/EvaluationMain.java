@@ -2,9 +2,14 @@ package dev.arl.evaluation;
 
 import java.nio.file.Path;
 
+/** Command-line entry point for deterministic offline evaluation. */
 public final class EvaluationMain {
   private EvaluationMain() {}
 
+  /**
+   * Writes the report to the first argument, or {@code target/evaluation/report.json} by default.
+   * Exits with an exception if any scenario fails or reports a safety violation.
+   */
   public static void main(String[] args) throws Exception {
     System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "warn");
     System.setProperty("org.slf4j.simpleLogger.log.com.alibaba.cloud.ai.graph.agent.node", "off");
