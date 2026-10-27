@@ -138,6 +138,7 @@ provider tests are opt-in with `make live-test` and credentials.
 
 - [Project status](docs/project-status.md)
 - [Architecture](docs/architecture.md)
+- [Domain-driven system design](docs/domain-driven-design.md)
 - [Requirements and configuration](docs/requirements.md)
 - [Quality harness](docs/quality-harness.md)
 - [Framework compatibility and provider evidence](docs/framework-compatibility.md)
