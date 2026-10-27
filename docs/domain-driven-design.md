@@ -174,7 +174,7 @@ sequenceDiagram
     Agent->>Tools: reserve_inventory proposal
     Tools->>Tools: Validate tool JSON and reservation policy
     alt BASELINE mode
-        Tools-->>Agent: RESERVATION_NOT_ENABLED; no stock write
+        Tools-->>Agent: RESERVATION_NOT_ENABLED, stock unchanged
     else PROTECTED mode
         Tools->>Catalog: Create expiring confirmation
         Catalog-->>Tools: ReservationProposal
