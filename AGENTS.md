@@ -1,9 +1,9 @@
 # Agent Instructions
 
 ## Current Scope
-- M4 is approved and implemented: protected reservations, deterministic offline evaluation, React demo and local Docker Compose stack.
-- Do not claim live evaluation or identity-bound authorization; broader commerce writes require approval.
-- `docs/m1-implementation.md` is a historical snapshot; use `docs/project-status.md` for current behavior.
+- Current implementation: protected reservations, deterministic offline evaluation, React demo and local Docker Compose stack.
+- Do not claim live evaluation or identity-bound authorization; broader commerce writes are outside the current scope.
+- Use `docs/project-status.md` for current behavior.
 
 ## Toolchain
 - Use OpenJDK 27; the root `pom.xml` sets `java.version` to `27`.
@@ -58,12 +58,12 @@
 - Boot 4 and the pinned AI/Alibaba stack bring Jackson 3 and Jackson 2 into the process; do not globally replace either mapper family.
 
 ## Engineering Quality Gate
-- Read `docs/quality-harness.md` and `docs/code-review.md` before changing behavior.
+- Read `docs/engineering/quality-harness.md` and `docs/engineering/code-review.md` before changing behavior.
 - Update `config/requirements.json` mappings when adding/renaming acceptance tests.
-- Run `make verify` on the final source state. Use its generated evidence, not the historical M0 JSON.
+- Run `make verify` on the final source state. Use evidence generated from the current source, not copied or historical reports.
 - Do not lower coverage floors, suppress checks, or reclassify automated requirements merely to pass.
 - Do not weaken Checkstyle or PMD CPD smell checks to pass; refactor large, complex or duplicated code instead.
-- Keep manual review, live provider verification and deferred milestones separate from automated passes.
+- Keep manual review, live provider verification and deferred work separate from automated passes.
 - Keep engineering verification, offline evaluation, manual review and live-provider evidence distinct.
 
 - Coverage gates per Java module: CLASS and METHOD >=71% (strictly above 70%); LINE >=85%; BRANCH >=75%.

@@ -1,5 +1,9 @@
 .git
 .github
+.idea
+.ruff_cache
+.vscode
+**/__pycache__
 **/target
 **/node_modules
 **/dist
@@ -8,4 +12,9 @@
 .env
 .env.*
 !.env.example
+docs
+scripts
+AGENTS.md
+README.md
+SECURITY.md
 target

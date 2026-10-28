@@ -11,7 +11,7 @@ execution**.
 
 The system demonstrates a narrow protected reservation workflow. It is not a production
 commerce service, an authenticated authorization system, or a live evaluation of model
-quality. For current milestone scope and caveats, see [Project Status](project-status.md).
+quality. For current scope and caveats, see [Project Status](project-status.md).
 
 ## DDD View at a Glance
 
@@ -273,13 +273,12 @@ if the domain grows:
 - `LlmProviderRegistry` demonstrates a port, while provider clients are infrastructure
   details. Preserve explicit selection and no-fallback behavior if providers change.
 - Traces are diagnostic and ephemeral. A durable audit requirement would need a separate
-  approved design, retention/privacy rules, and failure semantics; simply persisting the
-  current trace map would not establish an audit system.
+  design, retention/privacy rules, and failure semantics; simply persisting the current
+  trace map would not establish an audit system.
 - The reservation confirmation is not identity-bound. Production authorization requires
-  authentication, ownership checks, and a separately approved security model.
-- New commerce writes require the same strict validation, confirmation/authorization,
-  transaction, idempotency, and evidence boundaries; broader writes are outside current
-  approved scope.
+  authentication, ownership checks, and a separate security design.
+- New commerce writes require the same strict validation, confirmation policy, transaction,
+  idempotency, and evidence boundaries; broader writes are outside the current scope.
 
 These are evolution options, not claims that the abstractions or capabilities already
 exist. Keep new executable modules tied to actual functionality and preserve the current
@@ -301,5 +300,5 @@ provider evidence.
 | Offline scripted evaluation | `arl-evaluation/src/main/java/dev/arl/evaluation/` |
 | API client and browser demo | `frontend/src/` |
 
-See also [System Architecture](architecture.md), [Quality Harness](quality-harness.md),
-[Code Review Checklist](code-review.md), and [Project Status](project-status.md).
+See also [System Architecture](architecture.md), [Quality Harness](engineering/quality-harness.md),
+[Code Review Checklist](engineering/code-review.md), and [Project Status](project-status.md).

@@ -1,11 +1,11 @@
 # Project Status
 
-## Current Milestone
+## Current Capabilities
 
-M4 is implemented as a local protected reservation slice, deterministic offline evaluation
-and React demo UI. Alibaba `ReactAgent` owns the reasoning loop; ARL owns tool contracts,
-deterministic validation, confirmation-gated execution, idempotency, response mapping,
-trace capture, evaluation reporting and backend safety decisions.
+The current implementation is a local protected reservation demo with deterministic
+offline evaluation and a React demo UI. Alibaba `ReactAgent` owns the reasoning loop; ARL
+owns tool contracts, deterministic validation, confirmation-gated execution, idempotency,
+response mapping, trace capture, evaluation reporting and backend safety decisions.
 
 Implemented behavior:
 
@@ -20,7 +20,7 @@ Implemented behavior:
 - `arl-evaluation` offline runner with 59 deterministic cases across 10 reliability categories, isolated catalog state, scripted models, explicit routing-contract/safety/idempotency/recovery/trace metrics and JSON reports.
 - `frontend` Vite React UI for providers, chat, protected reservation confirmation and trace viewing.
 - Docker Compose local demo stack with health checks and persistent SQLite volume.
-- Docker cold build and startup verified locally on Apple Silicon Docker Desktop; see [requirements](requirements.md) for the measured duration and smoke checks.
+- Docker Compose build and startup are covered by the local demo workflow.
 - `SafeToolExecutor` and `ReservationPolicy` backend boundary for reservation proposals and confirmation requests.
 - Bounded retry with deadline/jitter for classified SQLite BUSY reads; model calls and write side effects remain non-retried.
 
@@ -32,10 +32,10 @@ Implemented behavior:
 
 Products and orders are deterministic. Inventory is mutable only through confirmed protected reservations. Restarting the app resets the catalog only when `ARL_DB_PATH` is blank; a file-backed database preserves stock, confirmations and idempotency records. Restarting always clears in-memory traces.
 
-## Deferred Work
+## Out of Scope
 
-The following are not implemented and should not be claimed without a later approved
-milestone:
+The following are not implemented and should not be claimed without new implementation and
+verification:
 
 - Live/provider-quality evaluation suite; current evaluation is intentionally offline and deterministic.
 - Live quality scoring.
@@ -57,4 +57,5 @@ milestone:
 - Spring AI and Alibaba dependencies are milestone releases.
 - DeepSeek thinking is disabled through a provider-specific transport workaround until an upgraded adapter passes equivalent wire tests.
 
-See [M1 implementation details](m1-implementation.md) and [framework compatibility](framework-compatibility.md) for deeper evidence.
+See [framework compatibility notes](engineering/framework-compatibility.md) for deeper
+dependency evidence.

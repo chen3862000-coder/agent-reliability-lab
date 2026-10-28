@@ -1,6 +1,6 @@
 # Agent Reliability Lab
 
-[![Verify](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/verify.yml/badge.svg)](https://github.com/chen3862000-coder/agent-reliability-lab/actions/workflows/verify.yml)
+[![CI: verify](https://img.shields.io/badge/CI-verify-blue)](.github/workflows/verify.yml)
 ![Java 27](https://img.shields.io/badge/Java-27-orange)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -14,11 +14,23 @@ The local demo uses synthetic commerce data, Alibaba `ReactAgent`, Spring AI
 OpenAI-compatible clients for DeepSeek/Grok, SQLite-backed confirmation-gated inventory
 reservations, deterministic offline evaluation and a React UI.
 
-![ARL layered system architecture](docs/diagrams/system-architecture.png)
+```mermaid
+flowchart LR
+  UI["React demo UI"] --> API["arl-server<br/>HTTP API"]
+  API --> AGENT["AgentExecutionService"]
+  AGENT --> REACT["Alibaba ReactAgent"]
+  REACT --> LLM["DeepSeek / Grok"]
+  AGENT --> TOOLS["CommerceToolRegistry<br/>SafeToolExecutor"]
+  TOOLS --> CATALOG["CommerceCatalog<br/>SQLite"]
+  AGENT --> TRACES["TraceStore<br/>in-memory diagnostics"]
+  EVAL["arl-evaluation<br/>scripted scenarios"] --> AGENT
+```
 
 *The browser UI is an API client. Safety and write decisions remain in the backend.*
 
 ![Agent Reliability Lab browser demo](docs/images/demo-ui.png)
+
+*Initial demo UI state with synthetic data. Provider keys are required before chat can run; see [Security and safe use](#security-and-safe-use).*
 
 ## Features
 
@@ -36,7 +48,13 @@ reservations, deterministic offline evaluation and a React UI.
 ARL is a local demo, not a production commerce service. It has no authentication,
 identity-bound confirmation authorization, or durable trace/audit store. Offline cases
 check deterministic application contracts; they do not measure autonomous model quality.
-Live provider tests are opt-in and their evidence is provider-specific.
+Live provider tests are opt-in and are not part of the default verification gate.
+
+## Security and Safe Use
+
+This repository is an unauthenticated local demo. Do not expose the frontend or API to an
+untrusted network. Confirmation IDs are not authorization, traces are in-memory
+diagnostics, and provider keys may incur charges. See [SECURITY.md](SECURITY.md).
 
 ## Run the Demo
 
@@ -57,9 +75,8 @@ the `arl-data` named volume. To stop the stack while preserving its data:
 make demo-down
 ```
 
-Use `make demo-cold` for an uncached image build. A cold build was verified on Apple
-Silicon Docker Desktop in about 2m44s; actual duration depends on host/network conditions.
-Provider keys are runtime environment variables, never image build arguments.
+Use `make demo-cold` for an uncached image build. Provider keys are runtime environment
+variables, never image build arguments.
 
 ### Local Processes
 
@@ -132,7 +149,7 @@ provider tests are opt-in with `make live-test` and credentials.
 - `arl-server`: Spring Boot composition root and HTTP API.
 - `arl-evaluation`: offline scenario runner and JSON reports.
 - `frontend`: Vite React TypeScript API client.
-- `docs/`: architecture, status, compatibility, requirements and quality documentation.
+- `docs/`: current architecture, status, requirements and engineering notes.
 
 ## Documentation
 
@@ -140,6 +157,11 @@ provider tests are opt-in with `make live-test` and credentials.
 - [Architecture](docs/architecture.md)
 - [Domain-driven system design](docs/domain-driven-design.md)
 - [Requirements and configuration](docs/requirements.md)
-- [Quality harness](docs/quality-harness.md)
-- [Framework compatibility and provider evidence](docs/framework-compatibility.md)
-- [Historical M1 implementation snapshot](docs/m1-implementation.md)
+- [Quality harness](docs/engineering/quality-harness.md)
+- [Code review checklist](docs/engineering/code-review.md)
+- [Framework compatibility notes](docs/engineering/framework-compatibility.md)
+- [Security policy](SECURITY.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).

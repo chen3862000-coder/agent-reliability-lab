@@ -11,8 +11,8 @@ Describe the concrete problem and resulting behavior. List affected requirement 
 
 ## Review
 
-- [ ] Review [the checklist](../docs/code-review.md), including trust boundaries, isolation and retry behavior.
+- [ ] Review [the checklist](../docs/engineering/code-review.md), including trust boundaries, isolation and retry behavior.
 - [ ] Record unresolved findings, compatibility changes and any manual acceptance needed.
-- [ ] Confirm this PR stays within the approved milestone.
+- [ ] Confirm this PR stays within the documented scope.
 
 Live-provider evidence, if applicable: provider/model, test command and actual result (never credentials).

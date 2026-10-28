@@ -3,6 +3,8 @@ target/
 .env.*
 !.env.example
 .idea/
+.vscode/
+.ruff_cache/
 *.iml
 .DS_Store
 .arl-data/

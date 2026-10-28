@@ -1,7 +1,7 @@
 # Engineering quality harness
 
-This harness checks the repository as software. It is separate from M2 runtime reliability
-controls and the M3 agent evaluation system.
+This harness checks the repository as software. It is separate from runtime reliability
+controls and the offline evaluation suite.
 
 ## One entry point
 
@@ -59,22 +59,22 @@ combination; 1.36.1 is pinned based on executable verification. No toolchain dow
 - `arl-*/target/checkstyle-result.xml`: source-check results.
 - `arl-*/target/cpd.xml`: duplicate-code report when CPD runs.
 
-These outputs are ignored by Git and uploaded as CI artifacts. The original
-`docs/m0-verification.json` is historical evidence only; it does not certify new code.
-Manual requirements stay MANUAL, future work stays DEFERRED and unavailable live
-provider evidence stays NOT_RUN. Automated success never marks those complete.
+These outputs are ignored by Git and uploaded as CI artifacts. No historical evidence file
+is checked in; always regenerate evidence from the current source. Manual requirements stay
+MANUAL, future work stays DEFERRED and unavailable live-provider evidence stays NOT_RUN.
+Automated success never marks those complete.
 
 ## Adding a requirement or regression
 
-1. Identify the approved milestone and a stable requirement ID in `config/requirements.json`.
+1. Identify a stable requirement ID in `config/requirements.json`.
 2. Add a behavioral test for the requirement, including a meaningful failure path.
 3. Map it as `fully.qualified.TestClass#methodName`; parameterized invocations share that name.
 4. Keep manual limitations explicit. Do not map a stub test as evidence of live model quality.
 5. Run `make verify`, review the evidence and complete the code-review checklist.
 
-The manifest traces M0 and M1 acceptance and records future milestone groups; it is not a
-claim that all future requirements already have tests. Expand deferred groups into
-specific acceptance tests when their milestone is approved.
+The manifest records current automated requirements and deferred work groups; it is not a
+claim that all deferred requirements already have tests. Expand deferred groups into
+specific acceptance tests when the behavior is implemented.
 
 ## CI and review enforcement
 
@@ -82,11 +82,7 @@ specific acceptance tests when their milestone is approved.
 Java 27. Action revisions are immutable, token permissions are read-only, no provider
 secrets are supplied and test/coverage evidence is retained even on failure.
 
-The workflow is configured locally; it cannot report a GitHub run until pushed.
-Repository administrators should require the `verify` check and one approving review,
-dismiss approvals after changes, and block merging unresolved review conversations.
-Branch protection is a GitHub setting and has not been changed by this work. Do not
-claim the PR template itself prevents merging. Assign CODEOWNERS only after the actual
-maintainer/reviewer identities have been selected.
+Repository settings such as required checks and branch protection are managed in GitHub and
+are separate from the files in this repository.
 
-See [code review](code-review.md) and [M1 readiness](m1-readiness.md).
+See [code review](code-review.md).
