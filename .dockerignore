@@ -3,6 +3,7 @@
 .idea
 .ruff_cache
 .vscode
+.arl-run
 **/__pycache__
 **/target
 **/node_modules

@@ -17,7 +17,8 @@
 - Container demo: `make demo`; stop with `make demo-down`.
 - Frontend verification: `make frontend-verify`; dev server: `make frontend-dev` after `make start`.
 - Java-only verification: `./mvnw clean verify`; formatting: `make format`.
-- Run the app: `make start` or `./scripts/start-arl-server.sh`; it builds and starts the HTTP server on loopback port 8080. `make run` is an alias.
+- Native local cluster: `make lab-up` starts backend and Vite; `make lab-status` reports state; `make lab-down` stops both. Logs and PIDs live under `.arl-run/`.
+- Run only the HTTP server: `make start` or `./scripts/start-arl-server.sh`; it builds and starts the server on loopback port 8080. `make run` is an alias.
 - Focus one module: `./mvnw -pl arl-core test` or `./mvnw -pl arl-server test`.
 - Focus one test class: `./mvnw -pl arl-core -Dtest=ProviderTransportTest test`.
 - Paid live smoke tests are opt-in only: export vars from `.env.example`, then run `make live-test`.

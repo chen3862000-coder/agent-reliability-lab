@@ -5,6 +5,7 @@ target/
 .idea/
 .vscode/
 .ruff_cache/
+.arl-run/
 *.iml
 .DS_Store
 .arl-data/

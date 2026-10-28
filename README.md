@@ -86,28 +86,29 @@ make demo-down
 Use `make demo-cold` for an uncached image build. Provider keys are runtime environment
 variables, never image build arguments.
 
-### Local Processes
+### Native Local Cluster
 
-Start the backend in one terminal:
+Run the Java backend and Vite frontend together on the host:
 
 ```sh
+make frontend-install   # once
 export ARL_DEFAULT_PROVIDER=deepseek
 export DEEPSEEK_API_KEY='your-deepseek-key'
 # Optional: persist stock/idempotency across restarts
 export ARL_DB_PATH="$PWD/target/local/arl.db"
-make start
+
+make lab-up
+make lab-status
 ```
 
-In another terminal, install and start the frontend:
+Open `http://127.0.0.1:5173`. Logs and PID files are written under `.arl-run/`. Stop the
+cluster with `make lab-down`; use `make lab-clean` to also remove its logs.
 
-```sh
-make frontend-install
-make frontend-dev
-```
-
-Open `http://127.0.0.1:5173`. The Vite server proxies API requests to
-`http://127.0.0.1:8080`. For Grok, use `ARL_DEFAULT_PROVIDER=grok` and `XAI_API_KEY`.
-ARL does not automatically load `.env`; export values in the shell that starts the app.
+The native scripts use API port `8080` and UI port `5173`. For Grok, use
+`ARL_DEFAULT_PROVIDER=grok` and `XAI_API_KEY`. ARL does not automatically load `.env`;
+export values in the shell that starts the cluster. See
+[Native local lab cluster](docs/local-lab.md) for configuration, lifecycle and
+troubleshooting details.
 
 ### Try the Flows
 
@@ -165,6 +166,7 @@ provider tests are opt-in with `make live-test` and credentials.
 - [Architecture](docs/architecture.md)
 - [Domain-driven system design](docs/domain-driven-design.md)
 - [Requirements and configuration](docs/requirements.md)
+- [Native local lab cluster](docs/local-lab.md)
 - [Quality harness](docs/engineering/quality-harness.md)
 - [Code review checklist](docs/engineering/code-review.md)
 - [Framework compatibility notes](docs/engineering/framework-compatibility.md)
