@@ -32,6 +32,14 @@ flowchart LR
 
 *Initial demo UI state with synthetic data. Provider keys are required before chat can run; see [Security and safe use](#security-and-safe-use).*
 
+## Demo Video
+
+[▶ Watch the 84-second Agent Reliability Lab demo](docs/videos/agent-reliability-lab-demo.mp4)
+
+The walkthrough uses DeepSeek against synthetic commerce data to demonstrate a baseline
+inventory query, structured tool results, execution traces and a protected reservation
+that requires explicit human confirmation before the application changes stock.
+
 ## Features
 
 - HTTP API for agent chat, health, provider status, confirmation and traces.
